@@ -216,7 +216,8 @@ body{-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
    НАСТРОЙКИ — заполнить после создания бота в BotFather
    ===================================================================== */
 const CONFIG = {
-  BOT_USERNAME: "",          // например "baraholka_iznutri_bot" (без @) — нужен для ссылок «Поделиться»
+  BOT_USERNAME: "vietnam_iznutri_bot", // бот бренда (без @)
+  APP_SHORTNAME: "baraholka",          // короткое имя mini app из /newapp в BotFather
   MANAGER_USERNAME: "",      // username оператора обменника (без @) — куда ведёт «Купить за ₽» в демо
   RATE: { rub: 305, usdt: 26300 } // ₫ за 1 ₽ и за 1 USDT — пример, в рабочей версии берётся из таблицы обменника
 };
@@ -321,7 +322,12 @@ function openTg(username){
   const url = "https://t.me/"+username;
   if (TG) safe(()=>TG.openTelegramLink(url)); else window.open(url, "_blank");
 }
-const itemLink = id => CONFIG.BOT_USERNAME ? `https://t.me/${CONFIG.BOT_USERNAME}?startapp=item_${id}` : location.href.split("#")[0]+"#item_"+id;
+const itemLink = id => {
+  if (!CONFIG.BOT_USERNAME) return location.href.split("#")[0]+"#item_"+id;
+  return CONFIG.APP_SHORTNAME
+    ? `https://t.me/${CONFIG.BOT_USERNAME}/${CONFIG.APP_SHORTNAME}?startapp=item_${id}`
+    : `https://t.me/${CONFIG.BOT_USERNAME}?startapp=item_${id}`;
+};
 
 /* ---------- нативные кнопки Telegram ---------- */
 let mainCb = null, secCb = null;
