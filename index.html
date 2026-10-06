@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="format-detection" content="telephone=no">
-<meta name="description" content="Барахолка Vietnam Iznutri — покупка и продажа б/у вещей для русскоязычных во Вьетнаме">
+<meta name="description" content="Vietnam изнутри — объявления, сервисы и всё для жизни во Вьетнаме">
 <meta name="theme-color" content="#2C3E2D">
-<title>Барахолка Iznutri</title>
+<title>Vietnam изнутри</title>
 <!-- Telegram Mini App SDK: должен стоять первым скриптом -->
 <script src="https://telegram.org/js/telegram-web-app.js?59"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -217,7 +217,7 @@ body{-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
    ===================================================================== */
 const CONFIG = {
   BOT_USERNAME: "vietnam_iznutri_bot", // бот бренда (без @)
-  APP_SHORTNAME: "baraholka",          // короткое имя mini app из /newapp в BotFather
+  APP_SHORTNAME: "app",                // короткое имя mini app из /newapp в BotFather
   MANAGER_USERNAME: "",      // username оператора обменника (без @) — куда ведёт «Купить за ₽» в демо
   RATE: { rub: 305, usdt: 26300 } // ₫ за 1 ₽ и за 1 USDT — пример, в рабочей версии берётся из таблицы обменника
 };
@@ -402,7 +402,7 @@ function feed(){
   return `
   <header class="top">
     <div class="top-row">
-      <div class="logo">Барахолка<span class="demo">ДЕМО</span><small>Vietnam Iznutri</small></div>
+      <div class="logo">Объявления<span class="demo">ДЕМО</span><small>Vietnam изнутри</small></div>
       <label class="city">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D6EB4F" stroke-width="2"><path d="M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
         <select id="city" aria-label="Город">${["Дананг","Хойан","Нячанг","Хошимин","Ханой","Фукуок","Муйне"].map(c=>`<option ${c===S.city?'selected':''}>${c}</option>`).join("")}</select>
@@ -453,10 +453,10 @@ function me(){
   <div class="sec-h"><h2>Мои объявления</h2><span>примеры</span></div>
   <div class="list">${mine.map((it,i)=>`<div class="li"><span class="mini" style="background:${TINT[it.c]}">${svg(it.c)}</span><span class="t"><b>${esc(it.t)}</b><small>${i?'86 просмотров · 4 в избранном':'214 просмотров · 11 в избранном'}</small></span><button class="pill ${i?'':'on'}" data-boost="1">${i?'Поднять':'VIP · 3 дня'}</button></div>`).join("")}</div>
   <div class="sec-h"><h2>Для бизнеса</h2></div>
-  <div class="list"><div class="saved"><span><b>Магазин на Барахолке</b><small>до 50 объявлений, статистика, бейдж «Магазин» — 390 000 ₫/мес</small></span></div></div>
+  <div class="list"><div class="saved"><span><b>Магазин в Vietnam изнутри</b><small>до 50 объявлений, статистика, бейдж «Магазин» — 390 000 ₫/мес</small></span></div></div>
   <div class="sec-h"><h2>Что здесь удобнее чатов</h2></div>
   <div class="feat">
-    <div><b>Цены в ₫, ₽ и USDT одной кнопкой</b><p>Курс берём у обменника Vietnam Iznutri, считать в голове не нужно.</p></div>
+    <div><b>Цены в ₫, ₽ и USDT одной кнопкой</b><p>Курс берём у обменника Vietnam изнутри, считать в голове не нужно.</p></div>
     <div><b>Безопасная сделка через обменник</b><p>Покупатель платит рублями, продавец получает донги. Ни одного перевода незнакомцу.</p></div>
     <div><b>«Уезжаю — продаю всё»</b><p>Одна страница на весь переезд: список вещей, дата отъезда, скидка за пакет.</p></div>
     <div><b>Объявление из пересланного поста</b><p>Перешлите боту свой пост из любого чата, ИИ разберёт фото, цену и описание.</p></div>
@@ -471,7 +471,7 @@ function post(){
   const slots = Math.max(0, 3 - S.photos.length);
   return `<div class="form">
     <h2>Новое объявление</h2>
-    <div class="ai"><span class="spark">ИИ</span><span><b>Перешлите пост из чата барахолки</b>Бот сам разнесёт фото, цену и описание по полям. Или заполните вручную.</span></div>
+    <div class="ai"><span class="spark">ИИ</span><span><b>Перешлите свой пост из любого чата</b>Бот сам разнесёт фото, цену и описание по полям. Или заполните вручную.</span></div>
     <div class="field"><span class="hint">Фото · ${S.photos.length} из 10</span>
       <div class="upl">${S.photos.length<10?`<label for="f-ph">+ фото<input id="f-ph" type="file" accept="image/*" multiple></label>`:''}${pv}${'<div></div>'.repeat(slots)}</div></div>
     <div class="field"><label for="f-t">Что продаёте</label><input id="f-t" placeholder="Например, Honda Vision 2020"></div>
@@ -553,7 +553,7 @@ function writeSeller(name){
 }
 function share(it){
   const link=itemLink(it.id);
-  const text=`${it.t} — ${price(it.p,"vnd")}${it.p?` (≈ ${price(it.p,"rub")})`:''}\nБарахолка Vietnam Iznutri`;
+  const text=`${it.t} — ${price(it.p,"vnd")}${it.p?` (≈ ${price(it.p,"rub")})`:''}\nVietnam изнутри`;
   const url=`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
   hap.tap();
   if (TG) safe(()=>TG.openTelegramLink(url));
@@ -568,7 +568,7 @@ function detail(id){
     <div class="big-ph" style="background:${TINT[it.c]}">${svg(it.c)}<div class="dots"><i></i><i></i><i></i><i></i></div></div>
     <div class="d-h"><h3>${esc(it.t)}</h3>
       <div class="conv"><b>${price(it.p,"vnd")}</b>${it.p?`<span>≈ ${price(it.p,"rub")}</span><span>≈ ${price(it.p,"usdt")}</span>`:''}</div>
-      ${it.p?`<div class="rate-note">Пересчёт по курсу обменника Vietnam Iznutri на сегодня</div>`:''}
+      ${it.p?`<div class="rate-note">Пересчёт по курсу обменника Vietnam изнутри на сегодня</div>`:''}
     </div>
     <div class="box"><dl class="kv"><dt>Состояние</dt><dd>${it.cond}</dd><dt>Район</dt><dd>${it.d}, ${S.city}</dd><dt>Опубликовано</dt><dd>${it.ago} назад</dd></dl>
       <p style="margin:12px 0 0;font-size:14px">${esc(it.desc)}</p></div>
