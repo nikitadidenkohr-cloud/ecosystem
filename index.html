@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<meta name="description" content="Барахолка Vietnam Iznutri — покупка и продажа б/у вещей для русскоязычных во Вьетнаме">
+<meta name="theme-color" content="#2C3E2D">
+<title>Барахолка Iznutri</title>
+<!-- Telegram Mini App SDK: должен стоять первым скриптом -->
+<script src="https://telegram.org/js/telegram-web-app.js?59"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Manrope:wght@400;500;600;700;800&display=swap">
+<style>
+/* Layout: одна колонка шириной телефона, нижняя панель вкладок, карточки товаров сеткой 2×N, детали открываются шторкой снизу */
+:root{
+  --bg:#F3F5EC; --surface:#FFFFFF; --surface-2:#E8ECDD; --fg:#1C2A1E; --muted:#5F6C5F;
+  --brand:#2C3E2D; --lime:#D6EB4F; --lime-ink:#1C2A1E; --line:#D9DFCB; --danger:#B4452F; --ok:#2F7A44;
+  --ad:#FFF6D6; --ad-line:#EADBA0;
+  --f-display:"Unbounded","Manrope",system-ui,sans-serif;
+  --f-body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141C15; --surface:#1E2A1F; --surface-2:#273628; --fg:#ECF1E2; --muted:#9DAA9B;
+  --brand:#2C3E2D; --lime:#D6EB4F; --lime-ink:#1C2A1E; --line:#304130; --danger:#E07A63; --ok:#7CC48F;
+  --ad:#2E2C1C; --ad-line:#4A4528; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#141C15; --surface:#1E2A1F; --surface-2:#273628; --fg:#ECF1E2; --muted:#9DAA9B;
+  --brand:#2C3E2D; --lime:#D6EB4F; --lime-ink:#1C2A1E; --line:#304130; --danger:#E07A63; --ok:#7CC48F;
+  --ad:#2E2C1C; --ad-line:#4A4528; color-scheme:dark }
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.45}
+*{box-sizing:border-box}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+.app{max-width:480px;margin:0 auto;min-height:100%;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px));position:relative}
+.wrap{padding-inline:16px}
+
+/* шапка */
+.top{background:var(--brand);color:#ECF1E2;padding:14px 16px 18px;border-radius:0 0 22px 22px}
+.top-row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.logo{font-family:var(--f-display);font-weight:700;font-size:18px;letter-spacing:-.01em;line-height:1.1}
+.logo small{display:block;font-family:var(--f-body);font-weight:600;font-size:11px;color:var(--lime);letter-spacing:.08em;text-transform:uppercase;margin-top:3px}
+.city{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);padding:7px 11px;border-radius:999px;font-weight:700;font-size:13px;color:#ECF1E2}
+.city select{background:transparent;border:0;color:inherit;font:inherit;appearance:none;padding-right:2px}
+.city select option{color:#1C2A1E}
+.search{margin-top:14px;display:flex;gap:8px}
+.search input{flex:1;min-width:0;border:0;border-radius:12px;padding:12px 14px;font:inherit;background:#ECF1E2;color:#1C2A1E}
+.cur{display:flex;background:rgba(255,255,255,.1);border-radius:12px;padding:3px}
+.cur button{padding:0 10px;border-radius:9px;font-weight:800;font-size:13px;color:#ECF1E2}
+.cur button[aria-pressed="true"]{background:var(--lime);color:var(--lime-ink)}
+
+/* чипы категорий */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:14px 16px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:8px 13px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-weight:700;font-size:13px;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+
+/* баннер переезда */
+.moving{margin:12px 16px 4px;display:flex;gap:12px;align-items:center;padding:14px;border-radius:var(--r);background:var(--lime);color:var(--lime-ink);text-align:left;width:calc(100% - 32px)}
+.moving b{font-family:var(--f-display);font-size:14px;font-weight:700;display:block;line-height:1.2}
+.moving span{font-size:13px;font-weight:600}
+.moving .n{margin-left:auto;font-family:var(--f-display);font-size:22px;font-weight:700}
+
+.sec-h{display:flex;justify-content:space-between;align-items:baseline;padding:16px 16px 8px}
+.sec-h h2{font-family:var(--f-display);font-size:15px;font-weight:700;margin:0}
+.sec-h span{color:var(--muted);font-size:13px;font-weight:600}
+
+/* сетка товаров */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-inline:16px}
+.card{background:var(--surface);border-radius:var(--r);overflow:hidden;text-align:left;display:flex;flex-direction:column;position:relative;min-width:0}
+.ph{aspect-ratio:1/1;max-width:100%;display:grid;place-items:center;position:relative}
+.ph svg{width:46%;height:46%}
+.badge{position:absolute;left:8px;top:8px;font-size:11px;font-weight:800;padding:3px 7px;border-radius:7px;background:var(--lime);color:var(--lime-ink)}
+.badge.res{background:#1C2A1E;color:#ECF1E2}
+.fav{position:absolute;right:6px;top:6px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.85);display:grid;place-items:center}
+.fav svg{width:17px;height:17px}
+.card-b{padding:9px 10px 11px;display:grid;gap:2px;min-width:0}
+.price{font-weight:800;font-size:16px;font-variant-numeric:tabular-nums}
+.title{font-size:13px;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{font-size:12px;color:var(--muted)}
+.card.vip{outline:2px solid var(--lime);outline-offset:-2px}
+
+/* рекламная карточка */
+.ad{grid-column:1/-1;background:var(--ad);border:1px solid var(--ad-line);border-radius:var(--r);padding:14px;display:flex;gap:12px;align-items:center;text-align:left}
+.ad .ic{flex:none;width:48px;height:48px;border-radius:12px;background:var(--brand);display:grid;place-items:center}
+.ad .ic svg{width:26px;height:26px}
+.ad b{display:block;font-size:14px}
+.ad p{margin:2px 0 0;font-size:13px;color:var(--muted)}
+.ad .tag{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* нижние вкладки */
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs-in{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);height:64px;align-items:center}
+.tab{display:grid;justify-items:center;gap:2px;font-size:11px;font-weight:700;color:var(--muted)}
+.tab svg{width:23px;height:23px}
+.tab[aria-current="page"]{color:var(--fg)}
+.tab.plus span{width:46px;height:46px;border-radius:15px;background:var(--lime);color:var(--lime-ink);display:grid;place-items:center}
+
+/* шторка */
+.sheet-bg{position:fixed;inset:0;background:rgba(10,16,10,.45);z-index:30}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:31;max-width:480px;margin:0 auto;background:var(--bg);border-radius:22px 22px 0 0;max-height:92%;overflow-y:auto;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px));animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion: reduce){.sheet{animation:none}}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:9px auto 0}
+.x{position:absolute;right:12px;top:12px;width:34px;height:34px;border-radius:50%;background:var(--surface);display:grid;place-items:center;z-index:2}
+.big-ph{aspect-ratio:4/3;max-width:100%;margin:12px 16px 0;border-radius:var(--r);display:grid;place-items:center;position:relative}
+.big-ph svg{width:34%;height:34%}
+.dots{position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:5px}
+.dots i{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.55)}.dots i:first-child{background:#fff}
+.d-h{padding:14px 16px 0}
+.d-h h3{font-family:var(--f-display);font-size:18px;font-weight:700;margin:0;line-height:1.25;text-wrap:balance}
+.conv{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-variant-numeric:tabular-nums}
+.conv b{font-size:22px}
+.conv span{color:var(--muted);font-weight:700;font-size:14px;align-self:flex-end;padding-bottom:3px}
+.rate-note{font-size:12px;color:var(--muted);margin-top:4px}
+.box{margin:12px 16px 0;background:var(--surface);border-radius:var(--r);padding:14px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px}
+.kv dt{color:var(--muted)}.kv dd{margin:0;font-weight:600;text-align:right}
+.seller{display:flex;gap:12px;align-items:center}
+.ava{width:44px;height:44px;border-radius:50%;background:var(--brand);color:var(--lime);font-family:var(--f-display);font-weight:700;display:grid;place-items:center;flex:none}
+.seller b{display:block}.seller small{color:var(--muted);font-size:13px}
+.verified{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--ok)}
+.safe{background:var(--brand);color:#ECF1E2}
+.safe h4{margin:0;font-family:var(--f-display);font-size:14px;color:var(--lime)}
+.safe p{margin:6px 0 10px;font-size:13px;opacity:.9}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:12px;font-weight:600}
+.steps div{background:rgba(255,255,255,.08);border-radius:10px;padding:8px}
+.steps div b{display:block;color:var(--lime);font-size:13px}
+.actions{position:sticky;bottom:0;display:flex;gap:8px;padding:14px 16px 0;background:linear-gradient(transparent,var(--bg) 30%)}
+.btn{flex:1;padding:14px;border-radius:14px;font-weight:800;font-size:15px;text-align:center}
+.btn.pri{background:var(--lime);color:var(--lime-ink)}
+.btn.sec{background:var(--surface);border:1px solid var(--line)}
+.btn.dark{background:var(--fg);color:var(--bg)}
+
+/* формы */
+.form{display:grid;gap:14px;padding:16px}
+.form h2{font-family:var(--f-display);font-size:18px;margin:0}
+.field{display:grid;gap:6px}
+.field label{font-size:13px;font-weight:700;color:var(--muted)}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:12px;font:inherit}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.upl{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.upl div{aspect-ratio:1/1;border:1.5px dashed var(--line);border-radius:12px;display:grid;place-items:center;color:var(--muted);font-size:22px}
+.upl div:first-child{background:var(--surface-2);border-style:solid;font-size:12px;font-weight:700;text-align:center;padding:4px}
+.ai{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;font-size:13px}
+.ai b{display:block;font-size:14px}
+.ai .spark{flex:none;width:34px;height:34px;border-radius:10px;background:var(--lime);display:grid;place-items:center;color:var(--lime-ink);font-weight:800}
+.boosts{display:grid;gap:8px}
+.boost{display:flex;align-items:center;gap:12px;padding:12px;border:1.5px solid var(--line);border-radius:14px;background:var(--surface);text-align:left}
+.boost[aria-pressed="true"]{border-color:var(--lime);box-shadow:0 0 0 1px var(--lime) inset}
+.boost b{display:block;font-size:14px}.boost small{color:var(--muted);font-size:12px}
+.boost .p{margin-left:auto;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.toggle{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px;font-weight:600}
+.toggle input{width:20px;height:20px;accent-color:var(--brand)}
+
+/* профиль */
+.p-head{display:flex;gap:14px;align-items:center;padding:16px}
+.p-head .ava{width:58px;height:58px;font-size:20px}
+.p-head h2{margin:0;font-family:var(--f-display);font-size:17px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-inline:16px}
+.stats div{background:var(--surface);border-radius:14px;padding:12px;text-align:center}
+.stats b{display:block;font-family:var(--f-display);font-size:18px;font-variant-numeric:tabular-nums}
+.stats small{color:var(--muted);font-size:12px;font-weight:600}
+.list{display:grid;gap:8px;padding-inline:16px}
+.li{display:flex;gap:12px;align-items:center;background:var(--surface);border-radius:14px;padding:10px;text-align:left;width:100%}
+.li .mini{width:54px;height:54px;border-radius:10px;flex:none;display:grid;place-items:center}
+.li .mini svg{width:55%;height:55%}
+.li .t{min-width:0;flex:1}
+.li .t b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li .t small{color:var(--muted);font-size:12px}
+.pill{font-size:11px;font-weight:800;padding:4px 8px;border-radius:7px;background:var(--surface-2);white-space:nowrap}
+.pill.on{background:var(--lime);color:var(--lime-ink)}
+.saved{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:14px;padding:12px}
+.saved b{display:block;font-size:14px}.saved small{color:var(--muted);font-size:12px}
+.saved .bell{margin-left:auto;font-size:12px;font-weight:800;color:var(--ok)}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.feat{display:grid;gap:10px;padding:0 16px}
+.feat div{background:var(--surface);border-radius:14px;padding:12px 14px}
+.feat b{display:block;font-size:14px}.feat p{margin:3px 0 0;font-size:13px;color:var(--muted)}
+
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:11px 16px;border-radius:12px;font-weight:700;font-size:14px;z-index:50;max-width:calc(100% - 32px)}
+.proto{font-size:11px;text-align:center;color:var(--muted);padding:18px 16px 6px}
+
+/* ---- Telegram-версия ---- */
+html,body{margin:0}
+body{-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
+.top{padding-top:calc(14px + var(--tg-safe-area-inset-top,0px) + var(--tg-content-safe-area-inset-top,0px))}
+.tabs{padding-bottom:max(env(safe-area-inset-bottom,0px), var(--tg-safe-area-inset-bottom,0px))}
+.in-tg .actions, .in-tg #publish{display:none}
+.in-tg .app{padding-bottom:calc(76px + var(--tg-safe-area-inset-bottom,0px))}
+.sheet-top{display:flex;justify-content:space-between;align-items:center;padding:6px 12px 0}
+.icon-btn{width:38px;height:38px;border-radius:50%;background:var(--surface);display:grid;place-items:center;color:var(--fg)}
+.icon-btn svg{width:19px;height:19px}
+.sheet .x{position:static}
+.upl label,.upl .pv{aspect-ratio:1/1;border-radius:12px;display:grid;place-items:center;overflow:hidden;position:relative}
+.upl label{background:var(--surface-2);border:1.5px dashed var(--line);color:var(--muted);font-size:12px;font-weight:700;text-align:center;padding:4px;cursor:pointer}
+.upl .pv img{width:100%;height:100%;object-fit:cover}
+.upl .pv button{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-size:12px;line-height:1}
+.upl input{position:absolute;width:1px;height:1px;opacity:0}
+.hint{font-size:12px;color:var(--muted)}
+.demo{display:inline-block;margin-left:6px;font-family:var(--f-body);font-size:10px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:6px;background:var(--lime);color:var(--lime-ink);vertical-align:middle}
+.p-head .ava img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+.upl .pv{border:0;background:var(--surface-2)}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<nav class="tabs" aria-label="Разделы"><div class="tabs-in" id="tabs"></div></nav>
+<div id="layer"></div>
+<div id="toast" class="toast" hidden></div>
+<script>
+/* =====================================================================
+   НАСТРОЙКИ — заполнить после создания бота в BotFather
+   ===================================================================== */
+const CONFIG = {
+  BOT_USERNAME: "",          // например "baraholka_iznutri_bot" (без @) — нужен для ссылок «Поделиться»
+  MANAGER_USERNAME: "",      // username оператора обменника (без @) — куда ведёт «Купить за ₽» в демо
+  RATE: { rub: 305, usdt: 26300 } // ₫ за 1 ₽ и за 1 USDT — пример, в рабочей версии берётся из таблицы обменника
+};
+
+/* ---------- Telegram SDK ---------- */
+const TG = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) ? window.Telegram.WebApp : null;
+const ver = v => !!(TG && TG.isVersionAtLeast && TG.isVersionAtLeast(v));
+const safe = fn => { try { fn(); } catch (e) {} };
+const USER = TG && TG.initDataUnsafe && TG.initDataUnsafe.user || null;
+
+function applyTheme(){
+  if (TG) document.documentElement.dataset.theme = TG.colorScheme === "dark" ? "dark" : "light";
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#F3F5EC";
+  if (ver("6.1")) safe(()=>{ TG.setHeaderColor("#2C3E2D"); TG.setBackgroundColor(bg); });
+  if (ver("7.10")) safe(()=>TG.setBottomBarColor(bg));
+}
+if (TG) {
+  document.documentElement.classList.add("in-tg");
+  safe(()=>TG.ready());
+  safe(()=>TG.expand());
+  if (ver("7.7")) safe(()=>TG.disableVerticalSwipes());
+  applyTheme();
+  safe(()=>TG.onEvent("themeChanged", applyTheme));
+}
+const hap = {
+  tap(){ if (ver("6.1")) safe(()=>TG.HapticFeedback.impactOccurred("light")); },
+  pick(){ if (ver("6.1")) safe(()=>TG.HapticFeedback.selectionChanged()); },
+  ok(){ if (ver("6.1")) safe(()=>TG.HapticFeedback.notificationOccurred("success")); }
+};
+
+/* ---------- хранилище избранного: CloudStorage в Telegram, localStorage в браузере ---------- */
+const store = {
+  get(key, cb){
+    if (ver("6.9")) { safe(()=>TG.CloudStorage.getItem(key, (err, v)=>cb(err ? null : v))); return; }
+    let v = null; try { v = localStorage.getItem(key); } catch(e) {}
+    cb(v);
+  },
+  set(key, val){
+    if (ver("6.9")) { safe(()=>TG.CloudStorage.setItem(key, val)); return; }
+    try { localStorage.setItem(key, val); } catch(e) {}
+  }
+};
+
+/* ---------- данные-примеры ---------- */
+const RATE = CONFIG.RATE;
+const CATS = [
+  {id:"all", n:"Всё"},{id:"bike", n:"Байки"},{id:"home", n:"Для дома"},{id:"tech", n:"Техника"},
+  {id:"kids", n:"Детям"},{id:"sport", n:"Спорт и сёрф"},{id:"rent", n:"Жильё"},{id:"free", n:"Отдам даром"}
+];
+const ICON = {
+  bike:'<path d="M5 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm14 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM8 14h5l3-5h2M13 14l-3-6H7"/>',
+  home:'<path d="M3 11h18v6H3zM5 17v3m14-3v3M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/>',
+  tech:'<path d="M3 5h18v11H3zM8 20h8m-4-4v4"/>',
+  kids:'<path d="M4 11h11a5 5 0 0 1-5 5H8a4 4 0 0 1-4-4v-1Zm11 0V6l4-2M7 19a1.5 1.5 0 1 0 0 .1M14 19a1.5 1.5 0 1 0 0 .1"/>',
+  sport:'<path d="M12 2c3 4 4 10 0 20C8 12 9 6 12 2Zm0 6v8"/>',
+  rent:'<path d="M3 11 12 4l9 7v9H3zM9 20v-6h6v6"/>',
+  free:'<path d="M4 10h16v10H4zM3 7h18v3H3zm9 0v13M12 7c-2-4-6-3-5 0m5 0c2-4 6-3 5 0"/>'
+};
+const TINT = {bike:"#C9D7A0",home:"#E2D2B8",tech:"#B9CBD3",kids:"#E6C7C2",sport:"#BFD8CF",rent:"#D5CBE0",free:"#E8E0A8"};
+const svg = (k, c) => `<svg viewBox="0 0 24 24" fill="none" stroke="${c||'#2C3E2D'}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
+const ICO_SHARE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
+
+const ITEMS = [
+  {id:1,c:"bike",t:"Honda Air Blade 125, 2019, голубая карта",p:22000000,d:"Ан Тхыонг",ago:"2 ч",s:"Дмитрий",sr:4.9,sd:14,vip:true,cond:"Хорошее",desc:"Масло менял месяц назад, новая резина. Голубая карта на руках, переоформим у нотариуса."},
+  {id:2,c:"home",t:"Матрас 160×200, ортопедический",p:2500000,d:"Ми Кхе",ago:"5 ч",s:"Анна",sr:5.0,sd:6,cond:"Отличное",desc:"Пользовались полгода, с наматрасником. Самовывоз, помогу донести до такси."},
+  {id:3,c:"tech",t:"Кофемашина DeLonghi Magnifica S",p:4800000,d:"Хай Чау",ago:"вчера",s:"Олег",sr:4.7,sd:3,cond:"Хорошее",desc:"Привёз из России, вьетнамская вилка-переходник в комплекте."},
+  {id:4,c:"kids",t:"Коляска Yoyo 2, прогулочная",p:3500000,d:"Сон Ча",ago:"вчера",s:"Мария",sr:4.8,sd:9,res:true,cond:"Хорошее",desc:"Складывается в ручную кладь. Чехол от дождя в подарок."},
+  {id:5,c:"sport",t:"Сёрф-доска 7'2 фанборд + лиш",p:6000000,d:"Ми Кхе",ago:"3 ч",s:"Артём",sr:5.0,sd:21,vip:true,cond:"Б/у, без трещин",desc:"Идеальна для Ми Кхе зимой. Можно посмотреть у пляжа."},
+  {id:6,c:"tech",t:"Монитор Dell 27\" 4K",p:3200000,d:"Хай Чау",ago:"6 ч",s:"Игорь",sr:4.6,sd:2,cond:"Отличное",desc:"Без битых пикселей, кабель USB-C."},
+  {id:7,c:"bike",t:"Шлем Royal M139, размер L",p:350000,d:"Ан Тхыонг",ago:"1 ч",s:"Катя",sr:4.9,sd:5,cond:"Новое",desc:"Купила не тот размер, не носила."},
+  {id:8,c:"home",t:"Стол IKEA Linnmon 120×60",p:1500000,d:"Нгу Хань Сон",ago:"2 дня",s:"Павел",sr:4.5,sd:4,cond:"Хорошее",desc:"Разберу перед продажей."},
+  {id:9,c:"rent",t:"Студия у моря, 6 мес, переуступка",p:9000000,d:"Ан Тхыонг",ago:"4 ч",s:"Лена",sr:4.9,sd:11,cond:"—",desc:"Цена за месяц. Депозит уже внесён, договорюсь с хозяйкой о передаче."},
+  {id:10,c:"sport",t:"Велосипед Giant Escape, рама M",p:2200000,d:"Сон Ча",ago:"вчера",s:"Никита",sr:4.8,sd:7,cond:"Хорошее",desc:"Катался по набережной, в комплекте замок."},
+  {id:11,c:"free",t:"Отдам: посуда, вешалки, удлинители",p:0,d:"Хай Чау",ago:"30 мин",s:"Ирина",sr:5.0,sd:1,cond:"—",desc:"Уезжаю, забирайте до пятницы."},
+  {id:12,c:"tech",t:"Электросамокат Ninebot Max G30",p:5500000,d:"Ми Кхе",ago:"8 ч",s:"Сергей",sr:4.7,sd:8,cond:"Хорошее",desc:"Пробег 1200 км, держит 50 км."}
+];
+const ADS = [
+  {ic:"bike",b:"Рубли → донги с доставкой",p:"Курс лучше банков, курьер привезёт наличные. Без предоплат.",tag:"Партнёр"},
+  {ic:"rent",b:"Чат «Дананг изнутри»",p:"Новости, афиша, ответы на всё про жизнь в Дананге.",tag:"Реклама"},
+  {ic:"tech",b:"E-visa и визаран за 1 день",p:"Специалист с отзывами, оформление онлайн.",tag:"Реклама"}
+];
+
+/* ---------- состояние ---------- */
+const S = { tab:"feed", cat:"all", q:"", cur:"vnd", city:"Дананг", fav:new Set(), boost:"none", photos:[], sheet:null, dirty:false };
+setTimeout(()=>store.get("fav", v => { try { (JSON.parse(v||"[]")).forEach(id=>S.fav.add(id)); } catch(e){} if (S.fav.size && !S.sheet) render(); }), 0);
+const saveFav = () => store.set("fav", JSON.stringify([...S.fav]));
+
+const fmt = n => n.toLocaleString("ru-RU").replace(/[ ,]/g," ");
+function price(p, cur){
+  if (p===0) return "Даром";
+  if (cur==="rub") return fmt(Math.round(p/RATE.rub/10)*10)+" ₽";
+  if (cur==="usdt") return fmt(Math.round(p/RATE.usdt))+" USDT";
+  return fmt(p)+" ₫";
+}
+const esc = s => String(s).replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+function toast(t){const el=document.getElementById("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400);}
+function popup(title, message, buttons, cb){
+  if (ver("6.2")) { safe(()=>TG.showPopup({title, message, buttons: buttons||[{type:"ok"}]}, id=>cb&&cb(id))); return; }
+  toast(message); cb && cb(buttons && buttons[0] && buttons[0].id);
+}
+function openTg(username){
+  const url = "https://t.me/"+username;
+  if (TG) safe(()=>TG.openTelegramLink(url)); else window.open(url, "_blank");
+}
+const itemLink = id => CONFIG.BOT_USERNAME ? `https://t.me/${CONFIG.BOT_USERNAME}?startapp=item_${id}` : location.href.split("#")[0]+"#item_"+id;
+
+/* ---------- нативные кнопки Telegram ---------- */
+let mainCb = null, secCb = null;
+if (TG) {
+  safe(()=>TG.MainButton.onClick(()=>mainCb && mainCb()));
+  if (ver("7.10")) safe(()=>TG.SecondaryButton.onClick(()=>secCb && secCb()));
+  safe(()=>TG.BackButton.onClick(goBack));
+}
+function setMain(text, cb){
+  mainCb = cb;
+  if (!TG) return;
+  safe(()=>{ text ? TG.MainButton.setParams({text, color:"#D6EB4F", text_color:"#1C2A1E", is_visible:true, is_active:true}) : TG.MainButton.hide(); });
+}
+function setSecond(text, cb){
+  secCb = cb;
+  if (!ver("7.10")) return;
+  safe(()=>{ text ? TG.SecondaryButton.setParams({text, is_visible:true, position:"left"}) : TG.SecondaryButton.hide(); });
+}
+function syncChrome(){
+  if (TG) safe(()=>{ (S.sheet || S.tab!=="feed") ? TG.BackButton.show() : TG.BackButton.hide(); });
+  if (S.sheet) return;               // кнопки шторки ставит сама шторка
+  setSecond(null);
+  if (S.tab==="post") setMain("Опубликовать", publish); else setMain(null);
+}
+function goBack(){
+  if (S.sheet) { closeSheet(); return; }
+  if (S.tab!=="feed") { S.tab="feed"; render(); window.scrollTo(0,0); }
+}
+
+/* ---------- вкладки ---------- */
+const TABS = [
+  {id:"feed",n:"Лента",i:'<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>'},
+  {id:"fav",n:"Избранное",i:'<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z"/>'},
+  {id:"post",n:"",i:'<path d="M12 5v14M5 12h14"/>',plus:true},
+  {id:"deals",n:"Сделки",i:'<path d="M4 7h13l-3-3M20 17H7l3 3"/>'},
+  {id:"me",n:"Профиль",i:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>'}
+];
+function renderTabs(){
+  document.getElementById("tabs").innerHTML = TABS.map(t=>{
+    const ic=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${t.i}</svg>`;
+    return t.plus
+      ? `<button class="tab plus" data-tab="${t.id}" aria-label="Подать объявление"><span>${ic}</span></button>`
+      : `<button class="tab" data-tab="${t.id}" ${S.tab===t.id?'aria-current="page"':''}>${ic}${t.n}</button>`;
+  }).join("");
+}
+
+/* ---------- карточки ---------- */
+function card(it){
+  const on=S.fav.has(it.id);
+  return `<button class="card ${it.vip?'vip':''}" data-open="${it.id}">
+    <div class="ph" style="background:${TINT[it.c]}">${svg(it.c)}
+      ${it.vip?'<span class="badge">VIP</span>':''}${it.res?'<span class="badge res">Забронировано</span>':''}
+      <span class="fav" data-fav="${it.id}" role="button" aria-label="В избранное"><svg viewBox="0 0 24 24" fill="${on?'#B4452F':'none'}" stroke="${on?'#B4452F':'#2C3E2D'}" stroke-width="1.8"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z"/></svg></span>
+    </div>
+    <div class="card-b"><span class="price">${price(it.p,S.cur)}</span><span class="title">${esc(it.t)}</span><span class="meta">${it.d} · ${it.ago}</span></div>
+  </button>`;
+}
+function adCard(a){
+  return `<button class="ad" data-ad="1"><span class="ic">${svg(a.ic,"#D6EB4F")}</span><span><span class="tag">${a.tag}</span><b>${a.b}</b><p>${a.p}</p></span></button>`;
+}
+function filtered(){
+  const q=S.q.trim().toLowerCase();
+  const list=ITEMS.filter(i=>(S.cat==="all"||i.c===S.cat)&&(!q||i.t.toLowerCase().includes(q)));
+  return list.sort((a,b)=>(b.vip?1:0)-(a.vip?1:0));
+}
+
+/* ---------- экраны ---------- */
+function feed(){
+  const list=filtered(); let html="", n=0;
+  list.forEach((it,i)=>{ html+=card(it); if((i+1)%6===0){ html+=adCard(ADS[n++%ADS.length]); } });
+  if(list.length && list.length<6) html+=adCard(ADS[0]);
+  return `
+  <header class="top">
+    <div class="top-row">
+      <div class="logo">Барахолка<span class="demo">ДЕМО</span><small>Vietnam Iznutri</small></div>
+      <label class="city">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D6EB4F" stroke-width="2"><path d="M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        <select id="city" aria-label="Город">${["Дананг","Хойан","Нячанг","Хошимин","Ханой","Фукуок","Муйне"].map(c=>`<option ${c===S.city?'selected':''}>${c}</option>`).join("")}</select>
+      </label>
+    </div>
+    <div class="search">
+      <input id="q" type="search" enterkeyhint="search" placeholder="Байк, матрас, коляска…" value="${esc(S.q)}" aria-label="Поиск">
+      <div class="cur" role="group" aria-label="Валюта цен">
+        ${[["vnd","₫"],["rub","₽"],["usdt","$T"]].map(([k,l])=>`<button data-cur="${k}" aria-pressed="${S.cur===k}">${l}</button>`).join("")}
+      </div>
+    </div>
+  </header>
+  <div class="chips" role="group" aria-label="Категории">${CATS.map(c=>`<button class="chip" data-cat="${c.id}" aria-pressed="${S.cat===c.id}">${c.n}</button>`).join("")}</div>
+  <button class="moving" data-moving="1"><span><b>Уезжаю — продаю всё</b><span>Распродажи переездов за неделю</span></span><span class="n">7</span></button>
+  <div class="sec-h"><h2>${S.q?'Результаты':'Свежее рядом'}</h2><span>${list.length} объявл.</span></div>
+  ${list.length?`<div class="grid">${html}</div>`:`<div class="empty">Ничего не нашли.<br><br><button class="btn dark" data-savesearch="1">Сохранить поиск и прислать в бот, когда появится</button></div>`}
+  <p class="proto">Демо-версия. Объявления и курсы — примеры.</p>`;
+}
+
+function favs(){
+  const list=ITEMS.filter(i=>S.fav.has(i.id));
+  return `<div class="form" style="padding-bottom:4px"><h2>Избранное</h2></div>
+  ${list.length?`<div class="grid">${list.map(card).join("")}</div>`:`<div class="empty">Нажмите на сердечко у объявления, чтобы сохранить его здесь. ${TG?'Избранное хранится в вашем Telegram и видно с любого устройства.':''}</div>`}
+  <div class="sec-h"><h2>Сохранённые поиски</h2><span>уведомления в бот</span></div>
+  <div class="list">
+    <div class="saved"><span><b>Байк до 20 млн ₫, Сон Ча</b><small>3 новых сегодня</small></span><span class="bell">вкл</span></div>
+    <div class="saved"><span><b>Детское, Ан Тхыонг</b><small>новых нет</small></span><span class="bell">вкл</span></div>
+  </div>`;
+}
+
+function deals(){
+  return `<div class="form" style="padding-bottom:4px"><h2>Сделки</h2></div>
+  <div class="box safe" style="margin-top:0"><h4>Оплата через обменник</h4><p>Покупатель платит рублями или USDT с российской карты, продавец получает донги наличными от курьера. Никаких переводов незнакомцам.</p>
+    <div class="steps"><div><b>1</b>Покупатель платит ₽</div><div><b>2</b>Встреча и осмотр</div><div><b>3</b>Курьер отдаёт ₫ продавцу</div></div></div>
+  <div class="sec-h"><h2>Активные</h2><span>2</span></div>
+  <div class="list">
+    ${[ITEMS[4],ITEMS[3]].map((it,i)=>`<button class="li" data-open="${it.id}"><span class="mini" style="background:${TINT[it.c]}">${svg(it.c)}</span><span class="t"><b>${esc(it.t)}</b><small>${price(it.p,"vnd")} · ${i?'бронь до завтра 18:00':'ждём оплату ₽'}</small></span><span class="pill ${i?'':'on'}">${i?'Бронь':'Оплата'}</span></button>`).join("")}
+  </div>`;
+}
+
+function me(){
+  const mine=[ITEMS[9],ITEMS[1]];
+  const name = USER ? [USER.first_name, USER.last_name].filter(Boolean).join(" ") : "Гость";
+  const ava = USER && USER.photo_url ? `<img src="${esc(USER.photo_url)}" alt="">` : esc(name[0]||"Г");
+  const sub = USER ? `<span class="verified">✓ Telegram подтверждён</span>${USER.username?` <small style="color:var(--muted)">· @${esc(USER.username)}</small>`:''}` : `<small style="color:var(--muted)">Откройте в Telegram, чтобы войти</small>`;
+  return `<div class="p-head"><span class="ava">${ava}</span><div><h2>${esc(name)}</h2>${sub}</div></div>
+  <div class="stats"><div><b>4,8</b><small>рейтинг</small></div><div><b>12</b><small>продано</small></div><div><b>2</b><small>активных</small></div></div>
+  <div class="sec-h"><h2>Мои объявления</h2><span>примеры</span></div>
+  <div class="list">${mine.map((it,i)=>`<div class="li"><span class="mini" style="background:${TINT[it.c]}">${svg(it.c)}</span><span class="t"><b>${esc(it.t)}</b><small>${i?'86 просмотров · 4 в избранном':'214 просмотров · 11 в избранном'}</small></span><button class="pill ${i?'':'on'}" data-boost="1">${i?'Поднять':'VIP · 3 дня'}</button></div>`).join("")}</div>
+  <div class="sec-h"><h2>Для бизнеса</h2></div>
+  <div class="list"><div class="saved"><span><b>Магазин на Барахолке</b><small>до 50 объявлений, статистика, бейдж «Магазин» — 390 000 ₫/мес</small></span></div></div>
+  <div class="sec-h"><h2>Что здесь удобнее чатов</h2></div>
+  <div class="feat">
+    <div><b>Цены в ₫, ₽ и USDT одной кнопкой</b><p>Курс берём у обменника Vietnam Iznutri, считать в голове не нужно.</p></div>
+    <div><b>Безопасная сделка через обменник</b><p>Покупатель платит рублями, продавец получает донги. Ни одного перевода незнакомцу.</p></div>
+    <div><b>«Уезжаю — продаю всё»</b><p>Одна страница на весь переезд: список вещей, дата отъезда, скидка за пакет.</p></div>
+    <div><b>Объявление из пересланного поста</b><p>Перешлите боту свой пост из любого чата, ИИ разберёт фото, цену и описание.</p></div>
+    <div><b>Поделиться объявлением в чат</b><p>Ссылка открывает объявление прямо в приложении, а не в длинной ленте чата.</p></div>
+  </div>
+  <p class="proto">Демо-версия. Данные — примеры.</p>`;
+}
+
+function post(){
+  const B=[["none","Обычное","бесплатно, 30 дней","0 ₫"],["up","Поднять в ленте","3 раза за 3 дня","50 000 ₫"],["vip","VIP","наверху и в рамке, 7 дней","150 000 ₫"]];
+  const pv = S.photos.map((u,i)=>`<div class="pv"><img src="${u}" alt=""><button data-rmph="${i}" aria-label="Удалить фото">✕</button></div>`).join("");
+  const slots = Math.max(0, 3 - S.photos.length);
+  return `<div class="form">
+    <h2>Новое объявление</h2>
+    <div class="ai"><span class="spark">ИИ</span><span><b>Перешлите пост из чата барахолки</b>Бот сам разнесёт фото, цену и описание по полям. Или заполните вручную.</span></div>
+    <div class="field"><span class="hint">Фото · ${S.photos.length} из 10</span>
+      <div class="upl">${S.photos.length<10?`<label for="f-ph">+ фото<input id="f-ph" type="file" accept="image/*" multiple></label>`:''}${pv}${'<div></div>'.repeat(slots)}</div></div>
+    <div class="field"><label for="f-t">Что продаёте</label><input id="f-t" placeholder="Например, Honda Vision 2020"></div>
+    <div class="row2">
+      <div class="field"><label for="f-c">Категория</label><select id="f-c">${CATS.slice(1).map(c=>`<option>${c.n}</option>`).join("")}</select></div>
+      <div class="field"><label for="f-d">Район</label><select id="f-d">${["Ан Тхыонг","Ми Кхе","Сон Ча","Хай Чау","Нгу Хань Сон"].map(d=>`<option>${d}</option>`).join("")}</select></div>
+    </div>
+    <div class="field"><label for="f-p">Цена, ₫</label><input id="f-p" inputmode="numeric" placeholder="2 500 000"><span class="rate-note" id="f-conv">≈ 0 ₽ · 0 USDT по курсу обменника</span></div>
+    <div class="field"><label for="f-s">Описание</label><textarea id="f-s" rows="3" placeholder="Состояние, комплект, где посмотреть"></textarea></div>
+    <label class="toggle">Принимаю оплату через обменник (₽ и USDT)<input id="f-x" type="checkbox" checked></label>
+    <label class="toggle">Это часть распродажи «Уезжаю»<input id="f-m" type="checkbox"></label>
+    <div class="field"><label>Продвижение</label><div class="boosts">${B.map(([k,b,s,p])=>`<button class="boost" data-pick="${k}" aria-pressed="${S.boost===k}"><span><b>${b}</b><small>${s}</small></span><span class="p">${p}</span></button>`).join("")}</div></div>
+    <button class="btn pri" id="publish">Опубликовать</button>
+  </div>`;
+}
+
+function render(){
+  const v={feed,fav:favs,post,deals,me}[S.tab]();
+  document.getElementById("app").innerHTML=v;
+  renderTabs();
+  syncChrome();
+  const q=document.getElementById("q");
+  if(q){ q.oninput=e=>{S.q=e.target.value; const pos=e.target.selectionStart; render(); const n=document.getElementById("q"); n.focus(); n.setSelectionRange(pos,pos);} ;
+         q.onkeydown=e=>{ if(e.key==="Enter") e.target.blur(); }; }
+  const city=document.getElementById("city"); if(city) city.onchange=e=>{S.city=e.target.value; hap.pick(); render();};
+  const fp=document.getElementById("f-p");
+  if(fp) fp.oninput=e=>{ const v=+e.target.value.replace(/\D/g,""); e.target.value=v?fmt(v):""; document.getElementById("f-conv").textContent=`≈ ${fmt(Math.round(v/RATE.rub))} ₽ · ${fmt(Math.round(v/RATE.usdt))} USDT по курсу обменника`; markDirty(); };
+  ["f-t","f-s"].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("input", markDirty); });
+  const ph=document.getElementById("f-ph");
+  if(ph) ph.onchange=e=>{
+    [...e.target.files].slice(0, 10-S.photos.length).forEach(f=>S.photos.push(URL.createObjectURL(f)));
+    hap.tap(); markDirty(); keepForm(render);
+  };
+}
+// при перерисовке формы сохраняем уже введённые поля
+function keepForm(fn){
+  const ids=["f-t","f-c","f-d","f-p","f-s"], vals={}, checks={};
+  ids.forEach(id=>{const el=document.getElementById(id); if(el) vals[id]=el.value;});
+  ["f-x","f-m"].forEach(id=>{const el=document.getElementById(id); if(el) checks[id]=el.checked;});
+  fn();
+  ids.forEach(id=>{const el=document.getElementById(id); if(el && vals[id]!=null) el.value=vals[id];});
+  Object.keys(checks).forEach(id=>{const el=document.getElementById(id); if(el) el.checked=checks[id];});
+}
+function markDirty(){ if(!S.dirty){ S.dirty=true; if(ver("6.2")) safe(()=>TG.enableClosingConfirmation()); } }
+function clearDirty(){ S.dirty=false; S.photos=[]; if(ver("6.2")) safe(()=>TG.disableClosingConfirmation()); }
+
+function publish(){
+  const t=(document.getElementById("f-t")||{}).value||"";
+  if(!t.trim()){ popup("Не хватает названия","Напишите, что продаёте — например, «Honda Vision 2020».",[{type:"ok"}]); document.getElementById("f-t").focus(); return; }
+  const paid = S.boost!=="none";
+  popup("Объявление готово",
+    paid ? "В рабочей версии здесь откроется оплата продвижения через Telegram Stars или обменник. Сейчас это демо — ничего не списывается."
+         : "В рабочей версии объявление уйдёт на модерацию и появится в ленте. Сейчас это демо — оно никуда не отправится.",
+    [{type:"ok"}], ()=>{ hap.ok(); clearDirty(); S.boost="none"; S.tab="me"; render(); window.scrollTo(0,0); });
+}
+
+/* ---------- шторки ---------- */
+function openSheet(html, key){
+  S.sheet = key;
+  document.getElementById("layer").innerHTML=`<div class="sheet-bg" data-close="1"></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
+  syncChrome();
+}
+function closeSheet(){
+  S.sheet=null;
+  document.getElementById("layer").innerHTML="";
+  render();
+}
+
+function buyViaExchange(it){
+  popup("Купить через обменник",
+    `Вы платите ${price(it.p,"rub")} с российской карты. Продавец получит ${price(it.p,"vnd")} наличными от курьера после того, как вы осмотрите вещь.`,
+    [{id:"go",type:"default",text:"Оставить заявку"},{type:"cancel"}],
+    id=>{ if(id!=="go") return;
+      if(CONFIG.MANAGER_USERNAME){ openTg(CONFIG.MANAGER_USERNAME); }
+      else { hap.ok(); toast("Демо: заявка ушла бы оператору обменника"); } });
+}
+function writeSeller(name){
+  popup("Написать продавцу", `В рабочей версии откроется личный чат с ${name} в Telegram. В демо у продавцов нет настоящих аккаунтов.`, [{type:"ok"}]);
+}
+function share(it){
+  const link=itemLink(it.id);
+  const text=`${it.t} — ${price(it.p,"vnd")}${it.p?` (≈ ${price(it.p,"rub")})`:''}\nБарахолка Vietnam Iznutri`;
+  const url=`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+  hap.tap();
+  if (TG) safe(()=>TG.openTelegramLink(url));
+  else if (navigator.share) navigator.share({title:it.t,text,url:link}).catch(()=>{});
+  else { navigator.clipboard && navigator.clipboard.writeText(link).then(()=>toast("Ссылка скопирована"),()=>toast(link)); }
+}
+
+function detail(id){
+  const it=ITEMS.find(i=>i.id===id); if(!it) return;
+  openSheet(`
+    <div class="sheet-top"><button class="icon-btn" data-share="${it.id}" aria-label="Поделиться">${ICO_SHARE}</button><button class="icon-btn x" data-close="1" aria-label="Закрыть">✕</button></div>
+    <div class="big-ph" style="background:${TINT[it.c]}">${svg(it.c)}<div class="dots"><i></i><i></i><i></i><i></i></div></div>
+    <div class="d-h"><h3>${esc(it.t)}</h3>
+      <div class="conv"><b>${price(it.p,"vnd")}</b>${it.p?`<span>≈ ${price(it.p,"rub")}</span><span>≈ ${price(it.p,"usdt")}</span>`:''}</div>
+      ${it.p?`<div class="rate-note">Пересчёт по курсу обменника Vietnam Iznutri на сегодня</div>`:''}
+    </div>
+    <div class="box"><dl class="kv"><dt>Состояние</dt><dd>${it.cond}</dd><dt>Район</dt><dd>${it.d}, ${S.city}</dd><dt>Опубликовано</dt><dd>${it.ago} назад</dd></dl>
+      <p style="margin:12px 0 0;font-size:14px">${esc(it.desc)}</p></div>
+    <div class="box seller"><span class="ava">${it.s[0]}</span><span><b>${it.s}</b><small>★ ${String(it.sr).replace(".",",")} · ${it.sd} сделок · <span class="verified">✓ Telegram</span></small></span></div>
+    ${it.p?`<div class="box safe"><h4>Купить через обменник</h4><p>Заплатите ${price(it.p,"rub")} с российской карты. Продавец получит ${price(it.p,"vnd")} наличными от нашего курьера после того, как вы осмотрите вещь.</p>
+      <div class="steps"><div><b>1</b>Вы платите ₽</div><div><b>2</b>Осмотр вещи</div><div><b>3</b>Продавцу ₫</div></div></div>`:''}
+    <div class="actions">
+      <button class="btn sec" data-msg="${it.s}">Написать</button>
+      ${it.p?`<button class="btn pri" data-safe="${it.id}">Купить за ₽</button>`:`<button class="btn pri" data-msg="${it.s}">Забрать</button>`}
+    </div>`, "item");
+  if (it.p) { setMain(`Купить за ${price(it.p,"rub")}`, ()=>buyViaExchange(it)); setSecond("Написать", ()=>writeSeller(it.s)); }
+  else { setMain("Забрать", ()=>writeSeller(it.s)); setSecond(null); }
+  // без SecondaryButton (старый Telegram) — оставляем кнопку «Написать» в шторке
+  if (TG && !ver("7.10")) document.querySelector(".sheet .actions").style.display="flex";
+}
+function moving(){
+  const pack=[ITEMS[1],ITEMS[2],ITEMS[7],ITEMS[10]];
+  const sum=pack.reduce((a,b)=>a+b.p,0);
+  const deal=Math.round(sum*0.8/10000)*10000;
+  openSheet(`<div class="sheet-top"><span></span><button class="icon-btn x" data-close="1" aria-label="Закрыть">✕</button></div>
+    <div class="d-h"><h3>Уезжаю — продаю всё</h3><p class="meta" style="margin:6px 0 0">Ирина, Хай Чау · улетаю 14 октября</p></div>
+    <div class="box"><dl class="kv"><dt>Вещей</dt><dd>${pack.length}</dd><dt>По отдельности</dt><dd>${price(sum,"vnd")}</dd><dt>Всё вместе</dt><dd style="color:var(--ok)">${price(deal,"vnd")} (−20%)</dd></dl></div>
+    <div class="sec-h"><h2>Что продаётся</h2></div>
+    <div class="list">${pack.map(it=>`<button class="li" data-open="${it.id}"><span class="mini" style="background:${TINT[it.c]}">${svg(it.c)}</span><span class="t"><b>${esc(it.t)}</b><small>${price(it.p,"vnd")}</small></span></button>`).join("")}</div>
+    <div class="actions"><button class="btn pri" data-msg="Ириной">Забрать всё за −20%</button></div>`, "moving");
+  setMain("Забрать всё за −20%", ()=>writeSeller("Ириной")); setSecond(null);
+}
+
+/* ---------- события ---------- */
+document.addEventListener("click", e=>{
+  const t=e.target.closest("[data-tab],[data-cat],[data-cur],[data-open],[data-fav],[data-close],[data-moving],[data-msg],[data-safe],[data-ad],[data-pick],[data-boost],[data-savesearch],[data-share],[data-rmph],#publish");
+  if(!t) return;
+  if(t.dataset.fav){ e.stopPropagation(); const id=+t.dataset.fav; S.fav.has(id)?S.fav.delete(id):S.fav.add(id); saveFav(); hap.tap(); render(); return; }
+  if(t.dataset.tab){ if(S.tab===t.dataset.tab && !S.sheet) return; S.tab=t.dataset.tab; S.sheet=null; document.getElementById("layer").innerHTML=""; hap.pick(); render(); window.scrollTo(0,0); return; }
+  if(t.dataset.cat){ S.cat=t.dataset.cat; hap.pick(); render(); return; }
+  if(t.dataset.cur){ S.cur=t.dataset.cur; hap.pick(); render(); return; }
+  if(t.dataset.open){ hap.tap(); detail(+t.dataset.open); return; }
+  if(t.dataset.close){ closeSheet(); return; }
+  if(t.dataset.moving){ hap.tap(); moving(); return; }
+  if(t.dataset.share){ share(ITEMS.find(i=>i.id===+t.dataset.share)); return; }
+  if(t.dataset.msg){ writeSeller(t.dataset.msg); return; }
+  if(t.dataset.safe){ buyViaExchange(ITEMS.find(i=>i.id===+t.dataset.safe)); return; }
+  if(t.dataset.ad){ popup("Реклама", "В рабочей версии здесь откроется канал или чат рекламодателя, а клик засчитается в статистику.", [{type:"ok"}]); return; }
+  if(t.dataset.pick){ S.boost=t.dataset.pick; hap.pick(); keepForm(render); return; }
+  if(t.matches("[data-rmph]")){ e.preventDefault(); S.photos.splice(+t.dataset.rmph,1); keepForm(render); return; }
+  if(t.dataset.boost){ S.tab="post"; S.boost="vip"; render(); window.scrollTo(0,document.body.scrollHeight); return; }
+  if(t.dataset.savesearch){ hap.ok(); toast("Поиск сохранён, бот напишет о новых объявлениях"); return; }
+  if(t.id==="publish"){ publish(); }
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") goBack(); });
+
+/* ---------- запуск: открыть объявление по ссылке ---------- */
+render();
+const start = (TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param) || location.hash.slice(1);
+const m = /^item_(\d+)$/.exec(start||"");
+if (m) detail(+m[1]);
+</script>
+</body>
+</html>
