@@ -204,6 +204,13 @@ body{-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
 .demo{display:inline-block;margin-left:6px;font-family:var(--f-body);font-size:10px;font-weight:800;letter-spacing:.06em;padding:2px 6px;border-radius:6px;background:var(--lime);color:var(--lime-ink);vertical-align:middle}
 .p-head .ava img{width:100%;height:100%;border-radius:50%;object-fit:cover}
 .upl .pv{border:0;background:var(--surface-2)}
+
+/* всё строго в ширину экрана */
+html,body{max-width:100%;overflow-x:hidden}
+.list,.feat,.boosts{grid-template-columns:minmax(0,1fr)}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.li,.saved,.boost{min-width:0;max-width:100%}
+.saved>span,.boost>span:first-child{min-width:0}
 </style>
 </head>
 <body>
