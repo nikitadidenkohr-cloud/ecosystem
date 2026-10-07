@@ -211,6 +211,35 @@ html,body{max-width:100%;overflow-x:hidden}
 .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 .li,.saved,.boost{min-width:0;max-width:100%}
 .saved>span,.boost>span:first-child{min-width:0}
+/* ---- реальные данные ---- */
+.ph.has-img{background:var(--surface-2)}
+.ph.has-img img,.mini.has-img img{width:100%;height:100%;object-fit:cover;display:block}
+.li .mini{overflow:hidden}
+.st.on{color:var(--ok);font-weight:700}.st.warn{color:var(--danger);font-weight:700}
+.pill.warn{background:var(--danger);color:#fff}
+.li.mine{flex-direction:column;align-items:stretch;gap:8px}
+.li.mine .row{display:flex;gap:12px;align-items:center;text-align:left;min-width:0;width:100%}
+.acts{display:flex;flex-wrap:wrap;gap:6px}
+.acts .pill{padding:6px 10px;font-size:12px}
+.acts-big{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:12px}
+.gal{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:8px;padding:12px 16px 0;scrollbar-width:none}
+.gal::-webkit-scrollbar{display:none}
+.gal img{flex:0 0 100%;max-width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--r);scroll-snap-align:center;background:var(--surface-2)}
+.gal-n{font-size:12px;color:var(--muted);text-align:center;margin-top:6px}
+.desc{margin:12px 0 0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.row-links{display:flex;justify-content:space-between;flex-direction:row;padding-top:10px;padding-bottom:0}
+.link{font-size:14px;font-weight:700;color:var(--muted);padding:6px 0}
+.fav-link.on{color:var(--danger)}
+.more{display:flex;justify-content:center;padding:14px 16px}
+.more .btn{flex:0 1 auto;padding:12px 22px}
+.btn[disabled]{opacity:.5;cursor:default}
+.skel .ph{background:var(--surface-2);animation:pulse 1.2s ease-in-out infinite}
+.skel .card-b i{display:block;height:12px;border-radius:6px;background:var(--surface-2);margin:4px 0}
+.skel .card-b i+i{width:60%}
+@keyframes pulse{50%{opacity:.55}}
+@media (prefers-reduced-motion: reduce){.skel .ph{animation:none}}
+.stats{margin-bottom:4px}
+.box.safe+.box.safe{margin-top:10px}
 </style>
 </head>
 <body>
@@ -220,19 +249,20 @@ html,body{max-width:100%;overflow-x:hidden}
 <div id="toast" class="toast" hidden></div>
 <script>
 /* =====================================================================
-   НАСТРОЙКИ — заполнить после создания бота в BotFather
+   НАСТРОЙКИ
    ===================================================================== */
 const CONFIG = {
-  BOT_USERNAME: "vietnam_iznutri_bot", // бот бренда (без @)
-  APP_SHORTNAME: "app",                // короткое имя mini app из /newapp в BotFather
-  MANAGER_USERNAME: "",      // username оператора обменника (без @) — куда ведёт «Купить за ₽» в демо
-  RATE: { rub: 305, usdt: 26300 } // ₫ за 1 ₽ и за 1 USDT — пример, в рабочей версии берётся из таблицы обменника
+  SUPABASE_URL: "https://rzoacytvcepyzmanajcd.supabase.co",       // https://xxxx.supabase.co
+  SUPABASE_KEY: "sb_publishable_F0qoT98Wit7i61CGSqI7rQ_z0T4HdUS",  // публичный anon / publishable ключ (его можно светить)
+  BOT_USERNAME: "vietnam_iznutri_bot",
+  APP_SHORTNAME: "app"
 };
+const CONFIGURED = /^https:\/\/.+/.test(CONFIG.SUPABASE_URL);
 
 /* ---------- Telegram SDK ---------- */
 const TG = (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData) ? window.Telegram.WebApp : null;
 const ver = v => !!(TG && TG.isVersionAtLeast && TG.isVersionAtLeast(v));
-const safe = fn => { try { fn(); } catch (e) {} };
+const safe = fn => { try { return fn(); } catch (e) {} };
 const USER = TG && TG.initDataUnsafe && TG.initDataUnsafe.user || null;
 
 function applyTheme(){
@@ -243,103 +273,114 @@ function applyTheme(){
 }
 if (TG) {
   document.documentElement.classList.add("in-tg");
-  safe(()=>TG.ready());
-  safe(()=>TG.expand());
+  safe(()=>TG.ready()); safe(()=>TG.expand());
   if (ver("7.7")) safe(()=>TG.disableVerticalSwipes());
-  applyTheme();
-  safe(()=>TG.onEvent("themeChanged", applyTheme));
+  applyTheme(); safe(()=>TG.onEvent("themeChanged", applyTheme));
 }
 const hap = {
   tap(){ if (ver("6.1")) safe(()=>TG.HapticFeedback.impactOccurred("light")); },
   pick(){ if (ver("6.1")) safe(()=>TG.HapticFeedback.selectionChanged()); },
-  ok(){ if (ver("6.1")) safe(()=>TG.HapticFeedback.notificationOccurred("success")); }
+  ok(){ if (ver("6.1")) safe(()=>TG.HapticFeedback.notificationOccurred("success")); },
+  err(){ if (ver("6.1")) safe(()=>TG.HapticFeedback.notificationOccurred("error")); }
 };
 
-/* ---------- хранилище избранного: CloudStorage в Telegram, localStorage в браузере ---------- */
-const store = {
-  get(key, cb){
-    if (ver("6.9")) { safe(()=>TG.CloudStorage.getItem(key, (err, v)=>cb(err ? null : v))); return; }
-    let v = null; try { v = localStorage.getItem(key); } catch(e) {}
-    cb(v);
-  },
-  set(key, val){
-    if (ver("6.9")) { safe(()=>TG.CloudStorage.setItem(key, val)); return; }
-    try { localStorage.setItem(key, val); } catch(e) {}
-  }
-};
+/* ---------- данные: Supabase ---------- */
+const PHOTO = p => `${CONFIG.SUPABASE_URL}/storage/v1/object/public/photos/${p}`;
+async function rest(path, opts={}){
+  const r = await fetch(`${CONFIG.SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts, headers: { apikey: CONFIG.SUPABASE_KEY, "content-type":"application/json", ...(opts.headers||{}) }
+  });
+  if (!r.ok) throw new Error("Не удалось загрузить данные");
+  return r.status === 204 ? null : r.json();
+}
+async function api(action, body={}){
+  if (!TG) throw new Error("Откройте приложение в Telegram, чтобы публиковать и сохранять объявления");
+  const r = await fetch(`${CONFIG.SUPABASE_URL}/functions/v1/api`, {
+    method: "POST",
+    headers: { "content-type":"application/json", apikey: CONFIG.SUPABASE_KEY, "x-init-data": TG.initData },
+    body: JSON.stringify({ action, ...body })
+  });
+  const data = await r.json().catch(()=>({ error: "Сервер не ответил" }));
+  if (!r.ok || data.error) throw new Error(data.error || "Ошибка");
+  return data;
+}
 
-/* ---------- данные-примеры ---------- */
-const RATE = CONFIG.RATE;
+/* ---------- справочники ---------- */
 const CATS = [
   {id:"all", n:"Всё"},{id:"bike", n:"Байки"},{id:"home", n:"Для дома"},{id:"tech", n:"Техника"},
-  {id:"kids", n:"Детям"},{id:"sport", n:"Спорт и сёрф"},{id:"rent", n:"Жильё"},{id:"free", n:"Отдам даром"}
+  {id:"kids", n:"Детям"},{id:"sport", n:"Спорт и сёрф"},{id:"clothes", n:"Одежда"},{id:"rent", n:"Жильё"},
+  {id:"other", n:"Разное"},{id:"free", n:"Отдам даром"}
 ];
+const CAT_NAME = Object.fromEntries(CATS.map(c=>[c.id,c.n]));
+const CITIES = ["Дананг","Хойан","Нячанг","Хошимин","Ханой","Фукуок","Муйне","Далат","Вунгтау"];
+const DISTRICTS = {
+  "Дананг": ["Ан Тхыонг","Ми Кхе","Сон Ча","Хай Чау","Тхань Кхе","Нгу Хань Сон","Лиен Чиеу","Кам Ле"],
+  "Нячанг": ["Центр","Север","Юг","Камрань"],
+  "Хошимин": ["Район 1","Район 2 (Тхао Дьен)","Район 3","Район 7","Бинь Тхань"]
+};
 const ICON = {
   bike:'<path d="M5 17a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm14 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM8 14h5l3-5h2M13 14l-3-6H7"/>',
   home:'<path d="M3 11h18v6H3zM5 17v3m14-3v3M5 11V7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v4"/>',
   tech:'<path d="M3 5h18v11H3zM8 20h8m-4-4v4"/>',
   kids:'<path d="M4 11h11a5 5 0 0 1-5 5H8a4 4 0 0 1-4-4v-1Zm11 0V6l4-2M7 19a1.5 1.5 0 1 0 0 .1M14 19a1.5 1.5 0 1 0 0 .1"/>',
   sport:'<path d="M12 2c3 4 4 10 0 20C8 12 9 6 12 2Zm0 6v8"/>',
+  clothes:'<path d="M8 3 3 6l2 4 2-1v12h10V9l2 1 2-4-5-3c0 2-2 3-4 3S8 5 8 3Z"/>',
   rent:'<path d="M3 11 12 4l9 7v9H3zM9 20v-6h6v6"/>',
-  free:'<path d="M4 10h16v10H4zM3 7h18v3H3zm9 0v13M12 7c-2-4-6-3-5 0m5 0c2-4 6-3 5 0"/>'
+  other:'<path d="M4 7l8-4 8 4v10l-8 4-8-4zM4 7l8 4 8-4M12 11v10"/>',
+  free:'<path d="M4 10h16v10H4zM3 7h18v3H3zm9 0v13M12 7c-2-4-6-3-5 0m5 0c2-4 6-3 5 0"/>',
+  swap:'<path d="M4 7h13l-3-3M20 17H7l3 3"/>'
 };
-const TINT = {bike:"#C9D7A0",home:"#E2D2B8",tech:"#B9CBD3",kids:"#E6C7C2",sport:"#BFD8CF",rent:"#D5CBE0",free:"#E8E0A8"};
-const svg = (k, c) => `<svg viewBox="0 0 24 24" fill="none" stroke="${c||'#2C3E2D'}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
+const TINT = {bike:"#C9D7A0",home:"#E2D2B8",tech:"#B9CBD3",kids:"#E6C7C2",sport:"#BFD8CF",clothes:"#D9CFE6",rent:"#D5CBE0",other:"#D6D9CC",free:"#E8E0A8"};
+const svg = (k, c) => `<svg viewBox="0 0 24 24" fill="none" stroke="${c||'#2C3E2D'}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]||ICON.other}</svg>`;
 const ICO_SHARE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>';
-
-const ITEMS = [
-  {id:1,c:"bike",t:"Honda Air Blade 125, 2019, голубая карта",p:22000000,d:"Ан Тхыонг",ago:"2 ч",s:"Дмитрий",sr:4.9,sd:14,vip:true,cond:"Хорошее",desc:"Масло менял месяц назад, новая резина. Голубая карта на руках, переоформим у нотариуса."},
-  {id:2,c:"home",t:"Матрас 160×200, ортопедический",p:2500000,d:"Ми Кхе",ago:"5 ч",s:"Анна",sr:5.0,sd:6,cond:"Отличное",desc:"Пользовались полгода, с наматрасником. Самовывоз, помогу донести до такси."},
-  {id:3,c:"tech",t:"Кофемашина DeLonghi Magnifica S",p:4800000,d:"Хай Чау",ago:"вчера",s:"Олег",sr:4.7,sd:3,cond:"Хорошее",desc:"Привёз из России, вьетнамская вилка-переходник в комплекте."},
-  {id:4,c:"kids",t:"Коляска Yoyo 2, прогулочная",p:3500000,d:"Сон Ча",ago:"вчера",s:"Мария",sr:4.8,sd:9,res:true,cond:"Хорошее",desc:"Складывается в ручную кладь. Чехол от дождя в подарок."},
-  {id:5,c:"sport",t:"Сёрф-доска 7'2 фанборд + лиш",p:6000000,d:"Ми Кхе",ago:"3 ч",s:"Артём",sr:5.0,sd:21,vip:true,cond:"Б/у, без трещин",desc:"Идеальна для Ми Кхе зимой. Можно посмотреть у пляжа."},
-  {id:6,c:"tech",t:"Монитор Dell 27\" 4K",p:3200000,d:"Хай Чау",ago:"6 ч",s:"Игорь",sr:4.6,sd:2,cond:"Отличное",desc:"Без битых пикселей, кабель USB-C."},
-  {id:7,c:"bike",t:"Шлем Royal M139, размер L",p:350000,d:"Ан Тхыонг",ago:"1 ч",s:"Катя",sr:4.9,sd:5,cond:"Новое",desc:"Купила не тот размер, не носила."},
-  {id:8,c:"home",t:"Стол IKEA Linnmon 120×60",p:1500000,d:"Нгу Хань Сон",ago:"2 дня",s:"Павел",sr:4.5,sd:4,cond:"Хорошее",desc:"Разберу перед продажей."},
-  {id:9,c:"rent",t:"Студия у моря, 6 мес, переуступка",p:9000000,d:"Ан Тхыонг",ago:"4 ч",s:"Лена",sr:4.9,sd:11,cond:"—",desc:"Цена за месяц. Депозит уже внесён, договорюсь с хозяйкой о передаче."},
-  {id:10,c:"sport",t:"Велосипед Giant Escape, рама M",p:2200000,d:"Сон Ча",ago:"вчера",s:"Никита",sr:4.8,sd:7,cond:"Хорошее",desc:"Катался по набережной, в комплекте замок."},
-  {id:11,c:"free",t:"Отдам: посуда, вешалки, удлинители",p:0,d:"Хай Чау",ago:"30 мин",s:"Ирина",sr:5.0,sd:1,cond:"—",desc:"Уезжаю, забирайте до пятницы."},
-  {id:12,c:"tech",t:"Электросамокат Ninebot Max G30",p:5500000,d:"Ми Кхе",ago:"8 ч",s:"Сергей",sr:4.7,sd:8,cond:"Хорошее",desc:"Пробег 1200 км, держит 50 км."}
-];
-const ADS = [
-  {ic:"bike",b:"Рубли → донги с доставкой",p:"Курс лучше банков, курьер привезёт наличные. Без предоплат.",tag:"Партнёр"},
-  {ic:"rent",b:"Чат «Дананг изнутри»",p:"Новости, афиша, ответы на всё про жизнь в Дананге.",tag:"Реклама"},
-  {ic:"tech",b:"E-visa и визаран за 1 день",p:"Специалист с отзывами, оформление онлайн.",tag:"Реклама"}
-];
+const STATUS = { active:["Активно","on"], reserved:["Бронь",""], sold:["Продано",""], hidden:["Скрыто модератором","warn"] };
 
 /* ---------- состояние ---------- */
-const S = { tab:"feed", cat:"all", q:"", cur:"vnd", city:"Дананг", fav:new Set(), boost:"none", photos:[], sheet:null, dirty:false };
-setTimeout(()=>store.get("fav", v => { try { (JSON.parse(v||"[]")).forEach(id=>S.fav.add(id)); } catch(e){} if (S.fav.size && !S.sheet) render(); }), 0);
-const saveFav = () => store.set("fav", JSON.stringify([...S.fav]));
+const S = {
+  tab:"feed", cat:"all", q:"", cur:"vnd", city:"Дананг",
+  items:[], page:0, more:false, loading:false, err:"",
+  fav:new Set(), favItems:null, mine:[], me:null, admin:false,
+  rates:{ rub:305, usdt:26300 }, manager:"", movingCount:0,
+  photos:[], sheet:null, dirty:false, busy:false, cache:new Map()
+};
+try { const c = localStorage.getItem("city"); if (CITIES.includes(c)) S.city = c; } catch(e){}
 
-const fmt = n => n.toLocaleString("ru-RU").replace(/[ ,]/g," ");
+/* ---------- утилиты ---------- */
+const fmt = n => Math.round(n).toLocaleString("ru-RU").replace(/[ ,]/g," ");
 function price(p, cur){
-  if (p===0) return "Даром";
-  if (cur==="rub") return fmt(Math.round(p/RATE.rub/10)*10)+" ₽";
-  if (cur==="usdt") return fmt(Math.round(p/RATE.usdt))+" USDT";
+  if (!p) return "Даром";
+  if (cur==="rub") return fmt(Math.round(p/S.rates.rub/10)*10)+" ₽";
+  if (cur==="usdt") return fmt(Math.round(p/S.rates.usdt))+" USDT";
   return fmt(p)+" ₫";
 }
-const esc = s => String(s).replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
-function toast(t){const el=document.getElementById("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2400);}
+const esc = s => String(s??"").replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+function ago(iso){
+  const m = Math.max(1, Math.round((Date.now()-new Date(iso).getTime())/60000));
+  if (m < 60) return m+" мин";
+  const h = Math.round(m/60); if (h < 24) return h+" ч";
+  const d = Math.round(h/24); if (d === 1) return "вчера";
+  if (d < 30) return d+" дн";
+  return new Date(iso).toLocaleDateString("ru-RU",{day:"numeric",month:"short"});
+}
+function toast(t){const el=document.getElementById("toast");el.textContent=t;el.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>el.hidden=true,2600);}
 function popup(title, message, buttons, cb){
   if (ver("6.2")) { safe(()=>TG.showPopup({title, message, buttons: buttons||[{type:"ok"}]}, id=>cb&&cb(id))); return; }
   toast(message); cb && cb(buttons && buttons[0] && buttons[0].id);
 }
-function openTg(username){
-  const url = "https://t.me/"+username;
-  if (TG) safe(()=>TG.openTelegramLink(url)); else window.open(url, "_blank");
+function confirmAsk(message, cb){
+  if (ver("6.2")) { safe(()=>TG.showConfirm(message, ok=>cb(ok))); return; }
+  cb(true);
 }
-const itemLink = id => {
-  if (!CONFIG.BOT_USERNAME) return location.href.split("#")[0]+"#item_"+id;
-  return CONFIG.APP_SHORTNAME
-    ? `https://t.me/${CONFIG.BOT_USERNAME}/${CONFIG.APP_SHORTNAME}?startapp=item_${id}`
-    : `https://t.me/${CONFIG.BOT_USERNAME}?startapp=item_${id}`;
-};
+const errPopup = e => { hap.err(); popup("Не получилось", String(e && e.message || e)); };
+function openTg(url){ if (TG) safe(()=>TG.openTelegramLink(url)); else window.open(url, "_blank"); }
+const itemLink = id => `https://t.me/${CONFIG.BOT_USERNAME}/${CONFIG.APP_SHORTNAME}?startapp=item_${id}`;
+// одно объявление = один объект во всех списках, чтобы изменения статуса были видны везде
+const remember = list => list.map(l => { const ex = S.cache.get(l.id); if (ex) { Object.assign(ex, l); return ex; } S.cache.set(l.id, l); return l; });
 
-/* ---------- нативные кнопки Telegram ---------- */
+/* ---------- нативные кнопки ---------- */
 let mainCb = null, secCb = null;
 if (TG) {
-  safe(()=>TG.MainButton.onClick(()=>mainCb && mainCb()));
+  safe(()=>TG.MainButton.onClick(()=>mainCb && !S.busy && mainCb()));
   if (ver("7.10")) safe(()=>TG.SecondaryButton.onClick(()=>secCb && secCb()));
   safe(()=>TG.BackButton.onClick(goBack));
 }
@@ -351,11 +392,12 @@ function setMain(text, cb){
 function setSecond(text, cb){
   secCb = cb;
   if (!ver("7.10")) return;
-  safe(()=>{ text ? TG.SecondaryButton.setParams({text, is_visible:true, position:"left"}) : TG.SecondaryButton.hide(); });
+  safe(()=>{ text ? TG.SecondaryButton.setParams({text, is_visible:true, position:"top"}) : TG.SecondaryButton.hide(); });
 }
+function mainProgress(on){ if (TG) safe(()=> on ? TG.MainButton.showProgress(false) : TG.MainButton.hideProgress()); }
 function syncChrome(){
   if (TG) safe(()=>{ (S.sheet || S.tab!=="feed") ? TG.BackButton.show() : TG.BackButton.hide(); });
-  if (S.sheet) return;               // кнопки шторки ставит сама шторка
+  if (S.sheet) return;
   setSecond(null);
   if (S.tab==="post") setMain("Опубликовать", publish); else setMain(null);
 }
@@ -364,12 +406,72 @@ function goBack(){
   if (S.tab!=="feed") { S.tab="feed"; render(); window.scrollTo(0,0); }
 }
 
+/* ---------- загрузка ---------- */
+const PAGE = 30;
+function feedQuery(offset){
+  const p = new URLSearchParams();
+  p.set("select","*");
+  p.set("status","in.(active,reserved)");
+  p.set("city","eq."+S.city);
+  if (S.cat!=="all") p.set("category","eq."+S.cat);
+  const q = S.q.trim().replace(/[(),*%\\:."']/g," ").replace(/\s+/g," ").trim();
+  if (q) p.set("or",`(title.ilike.*${q}*,description.ilike.*${q}*)`);
+  p.set("order","bumped_at.desc");
+  p.set("limit", String(PAGE)); p.set("offset", String(offset));
+  return "listings?"+p.toString();
+}
+let feedSeq = 0;
+async function loadFeed(append=false){
+  if (!CONFIGURED) return;
+  const seq = ++feedSeq;
+  S.loading = true; S.err = ""; if (!append) { S.page = 0; } render();
+  try {
+    const rows = remember(await rest(feedQuery(append ? S.items.length : 0)));
+    if (seq !== feedSeq) return;
+    S.items = append ? S.items.concat(rows) : rows;
+    S.more = rows.length === PAGE;
+  } catch(e){ if (seq === feedSeq) S.err = e.message; }
+  if (seq === feedSeq) { S.loading = false; render(); }
+}
+async function loadMovingCount(){
+  if (!CONFIGURED) return;
+  try {
+    const rows = await rest(`listings?select=id&status=eq.active&moving_sale=is.true&city=eq.${encodeURIComponent(S.city)}&limit=200`);
+    S.movingCount = rows.length; if (S.tab==="feed" && !S.sheet) render();
+  } catch(e){}
+}
+async function loadSettings(){
+  if (!CONFIGURED) return;
+  try {
+    const rows = await rest("app_settings?select=key,value");
+    rows.forEach(r=>{
+      if (r.key==="rates" && r.value.rub && r.value.usdt) S.rates = { rub:+r.value.rub, usdt:+r.value.usdt };
+      if (r.key==="manager") S.manager = String(r.value.username||"").replace(/^@/,"");
+    });
+    if (!S.sheet) render();
+  } catch(e){}
+}
+async function loadMe(){
+  if (!TG || !CONFIGURED) return;
+  try {
+    const d = await api("me");
+    S.me = d.user; S.admin = d.admin; S.fav = new Set(d.favs); S.mine = remember(d.mine);
+    if (!S.sheet) render();
+  } catch(e){ console.warn(e); }
+}
+async function getListing(id){
+  if (S.cache.has(id)) return S.cache.get(id);
+  const rows = await rest(`listings?select=*&id=eq.${id}`);
+  if (!rows.length) throw new Error("Объявление снято или не найдено");
+  return remember(rows)[0];
+}
+
 /* ---------- вкладки ---------- */
 const TABS = [
   {id:"feed",n:"Лента",i:'<path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/>'},
   {id:"fav",n:"Избранное",i:'<path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z"/>'},
   {id:"post",n:"",i:'<path d="M12 5v14M5 12h14"/>',plus:true},
-  {id:"deals",n:"Сделки",i:'<path d="M4 7h13l-3-3M20 17H7l3 3"/>'},
+  {id:"swap",n:"Обмен",i:ICON.swap},
   {id:"me",n:"Профиль",i:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>'}
 ];
 function renderTabs(){
@@ -382,37 +484,31 @@ function renderTabs(){
 }
 
 /* ---------- карточки ---------- */
-function card(it){
-  const on=S.fav.has(it.id);
-  return `<button class="card ${it.vip?'vip':''}" data-open="${it.id}">
-    <div class="ph" style="background:${TINT[it.c]}">${svg(it.c)}
-      ${it.vip?'<span class="badge">VIP</span>':''}${it.res?'<span class="badge res">Забронировано</span>':''}
-      <span class="fav" data-fav="${it.id}" role="button" aria-label="В избранное"><svg viewBox="0 0 24 24" fill="${on?'#B4452F':'none'}" stroke="${on?'#B4452F':'#2C3E2D'}" stroke-width="1.8"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z"/></svg></span>
+function thumb(l, cls="ph"){
+  return l.photos && l.photos.length
+    ? `<div class="${cls} has-img"><img src="${PHOTO(l.photos[0])}" alt="" loading="lazy" decoding="async">`
+    : `<div class="${cls}" style="background:${TINT[l.category]||TINT.other}">${svg(l.category)}`;
+}
+function card(l){
+  const on=S.fav.has(l.id);
+  return `<button class="card" data-open="${l.id}">
+    ${thumb(l)}
+      ${l.status==="reserved"?'<span class="badge res">Бронь</span>':''}
+      <span class="fav" data-fav="${l.id}" role="button" aria-label="В избранное"><svg viewBox="0 0 24 24" fill="${on?'#B4452F':'none'}" stroke="${on?'#B4452F':'#2C3E2D'}" stroke-width="1.8"><path d="M12 20s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.5-7 10-7 10Z"/></svg></span>
     </div>
-    <div class="card-b"><span class="price">${price(it.p,S.cur)}</span><span class="title">${esc(it.t)}</span><span class="meta">${it.d} · ${it.ago}</span></div>
+    <div class="card-b"><span class="price">${price(l.price_vnd,S.cur)}</span><span class="title">${esc(l.title)}</span><span class="meta">${esc(l.district||l.city)} · ${ago(l.bumped_at)}</span></div>
   </button>`;
 }
-function adCard(a){
-  return `<button class="ad" data-ad="1"><span class="ic">${svg(a.ic,"#D6EB4F")}</span><span><span class="tag">${a.tag}</span><b>${a.b}</b><p>${a.p}</p></span></button>`;
-}
-function filtered(){
-  const q=S.q.trim().toLowerCase();
-  const list=ITEMS.filter(i=>(S.cat==="all"||i.c===S.cat)&&(!q||i.t.toLowerCase().includes(q)));
-  return list.sort((a,b)=>(b.vip?1:0)-(a.vip?1:0));
-}
+const exchangeAd = () => `<button class="ad" data-tab="swap"><span class="ic">${svg("swap","#D6EB4F")}</span><span><span class="tag">Сервис Vietnam изнутри</span><b>Рубли → донги с доставкой</b><p>Курс лучше банков, курьер привезёт наличные. ${S.rates.rub ? "1 ₽ = "+fmt(S.rates.rub)+" ₫" : ""}</p></span></button>`;
 
 /* ---------- экраны ---------- */
-function feed(){
-  const list=filtered(); let html="", n=0;
-  list.forEach((it,i)=>{ html+=card(it); if((i+1)%6===0){ html+=adCard(ADS[n++%ADS.length]); } });
-  if(list.length && list.length<6) html+=adCard(ADS[0]);
-  return `
-  <header class="top">
+function header(){
+  return `<header class="top">
     <div class="top-row">
-      <div class="logo">Объявления<span class="demo">ДЕМО</span><small>Vietnam изнутри</small></div>
+      <div class="logo">Объявления<span class="demo">БЕТА</span><small>Vietnam изнутри</small></div>
       <label class="city">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D6EB4F" stroke-width="2"><path d="M12 21s7-6 7-12a7 7 0 0 0-14 0c0 6 7 12 7 12Z"/><circle cx="12" cy="9" r="2.5"/></svg>
-        <select id="city" aria-label="Город">${["Дананг","Хойан","Нячанг","Хошимин","Ханой","Фукуок","Муйне"].map(c=>`<option ${c===S.city?'selected':''}>${c}</option>`).join("")}</select>
+        <select id="city" aria-label="Город">${CITIES.map(c=>`<option ${c===S.city?'selected':''}>${c}</option>`).join("")}</select>
       </label>
     </div>
     <div class="search">
@@ -421,118 +517,255 @@ function feed(){
         ${[["vnd","₫"],["rub","₽"],["usdt","$T"]].map(([k,l])=>`<button data-cur="${k}" aria-pressed="${S.cur===k}">${l}</button>`).join("")}
       </div>
     </div>
-  </header>
+  </header>`;
+}
+function feed(){
+  if (!CONFIGURED) return header()+`<div class="empty">Приложение ещё не подключено к базе.</div>`;
+  let grid="";
+  S.items.forEach((l,i)=>{ grid+=card(l); if(i===5) grid+=exchangeAd(); });
+  if (S.items.length && S.items.length<6) grid+=exchangeAd();
+  let body;
+  if (S.err) body = `<div class="empty">${esc(S.err)}<br><br><button class="btn sec" data-reload="1">Повторить</button></div>`;
+  else if (S.loading && !S.items.length) body = `<div class="grid">${'<div class="card skel"><div class="ph"></div><div class="card-b"><i></i><i></i></div></div>'.repeat(6)}</div>`;
+  else if (!S.items.length) body = `<div class="empty">${S.q||S.cat!=="all" ? "По такому запросу ничего нет." : `В городе ${esc(S.city)} пока нет объявлений.`}<br><br><button class="btn pri" data-tab="post">Разместить первое</button></div>`;
+  else body = `<div class="grid">${grid}</div>${S.more?`<div class="more"><button class="btn sec" data-more="1">${S.loading?"Загружаю…":"Показать ещё"}</button></div>`:""}`;
+  return header()+`
   <div class="chips" role="group" aria-label="Категории">${CATS.map(c=>`<button class="chip" data-cat="${c.id}" aria-pressed="${S.cat===c.id}">${c.n}</button>`).join("")}</div>
-  <button class="moving" data-moving="1"><span><b>Уезжаю — продаю всё</b><span>Распродажи переездов за неделю</span></span><span class="n">7</span></button>
-  <div class="sec-h"><h2>${S.q?'Результаты':'Свежее рядом'}</h2><span>${list.length} объявл.</span></div>
-  ${list.length?`<div class="grid">${html}</div>`:`<div class="empty">Ничего не нашли.<br><br><button class="btn dark" data-savesearch="1">Сохранить поиск и прислать в бот, когда появится</button></div>`}
-  <p class="proto">Демо-версия. Объявления и курсы — примеры.</p>`;
+  ${S.movingCount?`<button class="moving" data-moving="1"><span><b>Уезжаю — продаю всё</b><span>Распродажи перед переездом</span></span><span class="n">${S.movingCount}</span></button>`:""}
+  <div class="sec-h"><h2>${S.q?'Результаты':'Свежее'}</h2><span>${S.items.length?S.items.length+(S.more?"+":"")+" объявл.":""}</span></div>
+  ${body}`;
 }
 
 function favs(){
-  const list=ITEMS.filter(i=>S.fav.has(i.id));
-  return `<div class="form" style="padding-bottom:4px"><h2>Избранное</h2></div>
-  ${list.length?`<div class="grid">${list.map(card).join("")}</div>`:`<div class="empty">Нажмите на сердечко у объявления, чтобы сохранить его здесь. ${TG?'Избранное хранится в вашем Telegram и видно с любого устройства.':''}</div>`}
-  <div class="sec-h"><h2>Сохранённые поиски</h2><span>уведомления в бот</span></div>
-  <div class="list">
-    <div class="saved"><span><b>Байк до 20 млн ₫, Сон Ча</b><small>3 новых сегодня</small></span><span class="bell">вкл</span></div>
-    <div class="saved"><span><b>Детское, Ан Тхыонг</b><small>новых нет</small></span><span class="bell">вкл</span></div>
-  </div>`;
+  const list = S.favItems;
+  let body;
+  if (!TG) body = `<div class="empty">Избранное работает в Telegram.</div>`;
+  else if (!list) body = `<div class="empty">Загружаю…</div>`;
+  else if (!list.length) body = `<div class="empty">Нажмите на сердечко у объявления, чтобы сохранить его здесь. Избранное видно с любого устройства.</div>`;
+  else body = `<div class="grid">${list.map(card).join("")}</div>`;
+  return `<div class="form" style="padding-bottom:4px"><h2>Избранное</h2></div>${body}`;
 }
 
-function deals(){
-  return `<div class="form" style="padding-bottom:4px"><h2>Сделки</h2></div>
-  <div class="box safe" style="margin-top:0"><h4>Оплата через обменник</h4><p>Покупатель платит рублями или USDT с российской карты, продавец получает донги наличными от курьера. Никаких переводов незнакомцам.</p>
-    <div class="steps"><div><b>1</b>Покупатель платит ₽</div><div><b>2</b>Встреча и осмотр</div><div><b>3</b>Курьер отдаёт ₫ продавцу</div></div></div>
-  <div class="sec-h"><h2>Активные</h2><span>2</span></div>
-  <div class="list">
-    ${[ITEMS[4],ITEMS[3]].map((it,i)=>`<button class="li" data-open="${it.id}"><span class="mini" style="background:${TINT[it.c]}">${svg(it.c)}</span><span class="t"><b>${esc(it.t)}</b><small>${price(it.p,"vnd")} · ${i?'бронь до завтра 18:00':'ждём оплату ₽'}</small></span><span class="pill ${i?'':'on'}">${i?'Бронь':'Оплата'}</span></button>`).join("")}
-  </div>`;
+function swap(){
+  const r = S.rates;
+  return `<div class="form" style="padding-bottom:4px"><h2>Обмен валют</h2></div>
+  <div class="stats"><div><b>${fmt(r.rub)}</b><small>₫ за 1 ₽</small></div><div><b>${fmt(r.usdt)}</b><small>₫ за 1 USDT</small></div><div><b>${fmt(Math.round(1000000/r.rub))}</b><small>₽ за 1 млн ₫</small></div></div>
+  <div class="box safe"><h4>Рубли и USDT → донги</h4><p>Переводите рубли с российской карты или USDT — курьер привезёт донги наличными, куда скажете. Без предоплат незнакомцам.</p>
+    <div class="steps"><div><b>1</b>Пишете оператору</div><div><b>2</b>Фиксируем курс</div><div><b>3</b>Курьер везёт ₫</div></div></div>
+  <div class="box safe"><h4>Покупка вещи за рубли</h4><p>Понравилась вещь, а донгов нет? Платите рублями — продавец получит донги от нашего курьера после того, как вы осмотрите вещь. Кнопка «Купить за ₽» есть в объявлениях с отметкой обмена.</p></div>
+  <div class="form"><button class="btn pri" data-manager="1" ${S.manager?"":"disabled"}>${S.manager?"Написать оператору":"Контакт оператора скоро появится"}</button></div>
+  <p class="proto">Курс ориентировочный, точный фиксируется у оператора.</p>`;
 }
 
 function me(){
-  const mine=[ITEMS[9],ITEMS[1]];
   const name = USER ? [USER.first_name, USER.last_name].filter(Boolean).join(" ") : "Гость";
   const ava = USER && USER.photo_url ? `<img src="${esc(USER.photo_url)}" alt="">` : esc(name[0]||"Г");
-  const sub = USER ? `<span class="verified">✓ Telegram подтверждён</span>${USER.username?` <small style="color:var(--muted)">· @${esc(USER.username)}</small>`:''}` : `<small style="color:var(--muted)">Откройте в Telegram, чтобы войти</small>`;
+  const sub = USER ? `<span class="verified">✓ Telegram</span>${USER.username?` <small style="color:var(--muted)">· @${esc(USER.username)}</small>`:''}${S.admin?' <span class="pill on">модератор</span>':''}` : `<small style="color:var(--muted)">Откройте в Telegram, чтобы войти</small>`;
+  const mine = S.mine;
+  const cnt = s => mine.filter(l=>l.status===s).length;
+  const rows = mine.map(l=>{
+    const [st, cls] = STATUS[l.status]||["",""];
+    const acts = l.status==="hidden" ? "" : `<div class="acts">
+      ${l.status==="active"?`<button class="pill" data-act="bump" data-id="${l.id}">Поднять</button><button class="pill" data-act="reserved" data-id="${l.id}">Бронь</button>`:""}
+      ${l.status==="reserved"||l.status==="sold"?`<button class="pill" data-act="active" data-id="${l.id}">Вернуть в ленту</button>`:""}
+      ${l.status!=="sold"?`<button class="pill" data-act="sold" data-id="${l.id}">Продано</button>`:""}
+      <button class="pill" data-act="deleted" data-id="${l.id}">Удалить</button></div>`;
+    return `<div class="li mine"><button class="row" data-open="${l.id}">${thumb(l,"mini")}</div><span class="t"><b>${esc(l.title)}</b><small>${price(l.price_vnd,"vnd")} · ${l.views} просм. · <span class="st ${cls}">${st}</span></small></span></button>${acts}</div>`;
+  }).join("");
   return `<div class="p-head"><span class="ava">${ava}</span><div><h2>${esc(name)}</h2>${sub}</div></div>
-  <div class="stats"><div><b>4,8</b><small>рейтинг</small></div><div><b>12</b><small>продано</small></div><div><b>2</b><small>активных</small></div></div>
-  <div class="sec-h"><h2>Мои объявления</h2><span>примеры</span></div>
-  <div class="list">${mine.map((it,i)=>`<div class="li"><span class="mini" style="background:${TINT[it.c]}">${svg(it.c)}</span><span class="t"><b>${esc(it.t)}</b><small>${i?'86 просмотров · 4 в избранном':'214 просмотров · 11 в избранном'}</small></span><button class="pill ${i?'':'on'}" data-boost="1">${i?'Поднять':'VIP · 3 дня'}</button></div>`).join("")}</div>
-  <div class="sec-h"><h2>Для бизнеса</h2></div>
-  <div class="list"><div class="saved"><span><b>Магазин в Vietnam изнутри</b><small>до 50 объявлений, статистика, бейдж «Магазин» — 390 000 ₫/мес</small></span></div></div>
-  <div class="sec-h"><h2>Что здесь удобнее чатов</h2></div>
+  <div class="stats"><div><b>${cnt("active")+cnt("reserved")}</b><small>в ленте</small></div><div><b>${cnt("sold")}</b><small>продано</small></div><div><b>${mine.reduce((a,l)=>a+l.views,0)}</b><small>просмотров</small></div></div>
+  <div class="sec-h"><h2>Мои объявления</h2><span>${mine.length||""}</span></div>
+  ${mine.length?`<div class="list">${rows}</div>`:`<div class="empty">Вы ещё ничего не продаёте.<br><br><button class="btn pri" data-tab="post">Подать объявление</button></div>`}
+  <div class="sec-h"><h2>Как это работает</h2></div>
   <div class="feat">
-    <div><b>Цены в ₫, ₽ и USDT одной кнопкой</b><p>Курс берём у обменника Vietnam изнутри, считать в голове не нужно.</p></div>
-    <div><b>Безопасная сделка через обменник</b><p>Покупатель платит рублями, продавец получает донги. Ни одного перевода незнакомцу.</p></div>
-    <div><b>«Уезжаю — продаю всё»</b><p>Одна страница на весь переезд: список вещей, дата отъезда, скидка за пакет.</p></div>
-    <div><b>Объявление из пересланного поста</b><p>Перешлите боту свой пост из любого чата, ИИ разберёт фото, цену и описание.</p></div>
-    <div><b>Поделиться объявлением в чат</b><p>Ссылка открывает объявление прямо в приложении, а не в длинной ленте чата.</p></div>
-  </div>
-  <p class="proto">Демо-версия. Данные — примеры.</p>`;
+    <div><b>Поднять бесплатно</b><p>Раз в сутки можно поднять объявление наверх ленты.</p></div>
+    <div><b>Покупатели пишут в Telegram</b><p>Если у вас нет @username, бот пришлёт контакт покупателя сюда, в чат с ботом.</p></div>
+    <div><b>Модерация</b><p>Объявления с обманом, запрещёнными товарами и спамом скрываются.</p></div>
+  </div>`;
 }
 
 function post(){
-  const B=[["none","Обычное","бесплатно, 30 дней","0 ₫"],["up","Поднять в ленте","3 раза за 3 дня","50 000 ₫"],["vip","VIP","наверху и в рамке, 7 дней","150 000 ₫"]];
-  const pv = S.photos.map((u,i)=>`<div class="pv"><img src="${u}" alt=""><button data-rmph="${i}" aria-label="Удалить фото">✕</button></div>`).join("");
+  const pv = S.photos.map((p,i)=>`<div class="pv"><img src="${p.url}" alt=""><button data-rmph="${i}" aria-label="Удалить фото">✕</button></div>`).join("");
   const slots = Math.max(0, 3 - S.photos.length);
+  const dl = DISTRICTS[S.city]||[];
   return `<div class="form">
     <h2>Новое объявление</h2>
-    <div class="ai"><span class="spark">ИИ</span><span><b>Перешлите свой пост из любого чата</b>Бот сам разнесёт фото, цену и описание по полям. Или заполните вручную.</span></div>
-    <div class="field"><span class="hint">Фото · ${S.photos.length} из 10</span>
+    ${TG?"":`<div class="ai"><span class="spark">!</span><span><b>Откройте в Telegram</b>Публиковать можно только из приложения в Telegram.</span></div>`}
+    <div class="field"><span class="hint">Фото · ${S.photos.length} из 10 · первое станет обложкой</span>
       <div class="upl">${S.photos.length<10?`<label for="f-ph">+ фото<input id="f-ph" type="file" accept="image/*" multiple></label>`:''}${pv}${'<div></div>'.repeat(slots)}</div></div>
-    <div class="field"><label for="f-t">Что продаёте</label><input id="f-t" placeholder="Например, Honda Vision 2020"></div>
+    <div class="field"><label for="f-t">Что продаёте</label><input id="f-t" maxlength="120" placeholder="Например, Honda Vision 2020"></div>
     <div class="row2">
-      <div class="field"><label for="f-c">Категория</label><select id="f-c">${CATS.slice(1).map(c=>`<option>${c.n}</option>`).join("")}</select></div>
-      <div class="field"><label for="f-d">Район</label><select id="f-d">${["Ан Тхыонг","Ми Кхе","Сон Ча","Хай Чау","Нгу Хань Сон"].map(d=>`<option>${d}</option>`).join("")}</select></div>
+      <div class="field"><label for="f-c">Категория</label><select id="f-c">${CATS.slice(1).map(c=>`<option value="${c.id}">${c.n}</option>`).join("")}</select></div>
+      <div class="field"><label for="f-city">Город</label><select id="f-city">${CITIES.map(c=>`<option ${c===S.city?'selected':''}>${c}</option>`).join("")}</select></div>
     </div>
-    <div class="field"><label for="f-p">Цена, ₫</label><input id="f-p" inputmode="numeric" placeholder="2 500 000"><span class="rate-note" id="f-conv">≈ 0 ₽ · 0 USDT по курсу обменника</span></div>
-    <div class="field"><label for="f-s">Описание</label><textarea id="f-s" rows="3" placeholder="Состояние, комплект, где посмотреть"></textarea></div>
-    <label class="toggle">Принимаю оплату через обменник (₽ и USDT)<input id="f-x" type="checkbox" checked></label>
-    <label class="toggle">Это часть распродажи «Уезжаю»<input id="f-m" type="checkbox"></label>
-    <div class="field"><label>Продвижение</label><div class="boosts">${B.map(([k,b,s,p])=>`<button class="boost" data-pick="${k}" aria-pressed="${S.boost===k}"><span><b>${b}</b><small>${s}</small></span><span class="p">${p}</span></button>`).join("")}</div></div>
+    <div class="field"><label for="f-d">Район</label><input id="f-d" list="f-dl" maxlength="60" placeholder="${dl[0]?'Например, '+dl[0]:'Район или ориентир'}"><datalist id="f-dl">${dl.map(d=>`<option value="${d}">`).join("")}</datalist></div>
+    <div class="field" id="f-pw"><label for="f-p">Цена, ₫</label><input id="f-p" inputmode="numeric" placeholder="2 500 000"><span class="rate-note" id="f-conv">≈ 0 ₽ · 0 USDT по курсу обменника</span></div>
+    <div class="field"><label for="f-s">Описание</label><textarea id="f-s" rows="4" maxlength="3000" placeholder="Состояние, комплект, где посмотреть"></textarea></div>
+    <label class="toggle">Можно купить за рубли через обменник<input id="f-x" type="checkbox" checked></label>
+    <label class="toggle">Это распродажа перед отъездом<input id="f-m" type="checkbox"></label>
+    <p class="hint">Публикуя, вы соглашаетесь, что объявление честное: без обмана, оружия, лекарств и запрещённых товаров.</p>
     <button class="btn pri" id="publish">Опубликовать</button>
   </div>`;
 }
 
 function render(){
-  const v={feed,fav:favs,post,deals,me}[S.tab]();
+  const v={feed,fav:favs,post,swap,me}[S.tab]();
   document.getElementById("app").innerHTML=v;
   renderTabs();
   syncChrome();
+  bindInputs();
+}
+let qTimer;
+function bindInputs(){
   const q=document.getElementById("q");
-  if(q){ q.oninput=e=>{S.q=e.target.value; const pos=e.target.selectionStart; render(); const n=document.getElementById("q"); n.focus(); n.setSelectionRange(pos,pos);} ;
-         q.onkeydown=e=>{ if(e.key==="Enter") e.target.blur(); }; }
-  const city=document.getElementById("city"); if(city) city.onchange=e=>{S.city=e.target.value; hap.pick(); render();};
+  if(q){
+    q.oninput=e=>{ S.q=e.target.value; clearTimeout(qTimer); qTimer=setTimeout(()=>{ const pos=q.selectionStart; loadFeed().then(()=>{ const n=document.getElementById("q"); if(n && document.activeElement!==n){ n.focus(); n.setSelectionRange(pos,pos);} }); }, 350); };
+    q.onkeydown=e=>{ if(e.key==="Enter") e.target.blur(); };
+  }
+  const city=document.getElementById("city");
+  if(city) city.onchange=e=>{ S.city=e.target.value; try{localStorage.setItem("city",S.city);}catch(_){} hap.pick(); loadFeed(); loadMovingCount(); };
   const fp=document.getElementById("f-p");
-  if(fp) fp.oninput=e=>{ const v=+e.target.value.replace(/\D/g,""); e.target.value=v?fmt(v):""; document.getElementById("f-conv").textContent=`≈ ${fmt(Math.round(v/RATE.rub))} ₽ · ${fmt(Math.round(v/RATE.usdt))} USDT по курсу обменника`; markDirty(); };
-  ["f-t","f-s"].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("input", markDirty); });
+  if(fp) fp.oninput=e=>{ const v=+e.target.value.replace(/\D/g,""); e.target.value=v?fmt(v):""; document.getElementById("f-conv").textContent=`≈ ${fmt(Math.round(v/S.rates.rub))} ₽ · ${fmt(Math.round(v/S.rates.usdt))} USDT по курсу обменника`; markDirty(); };
+  const fc=document.getElementById("f-c");
+  if(fc) { const upd=()=>{ document.getElementById("f-pw").hidden = fc.value==="free"; }; fc.onchange=upd; upd(); }
+  ["f-t","f-s","f-d"].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("input", markDirty); });
   const ph=document.getElementById("f-ph");
   if(ph) ph.onchange=e=>{
-    [...e.target.files].slice(0, 10-S.photos.length).forEach(f=>S.photos.push(URL.createObjectURL(f)));
+    [...e.target.files].slice(0, 10-S.photos.length).forEach(f=>S.photos.push({file:f, url:URL.createObjectURL(f)}));
     hap.tap(); markDirty(); keepForm(render);
   };
 }
-// при перерисовке формы сохраняем уже введённые поля
 function keepForm(fn){
-  const ids=["f-t","f-c","f-d","f-p","f-s"], vals={}, checks={};
+  const ids=["f-t","f-c","f-city","f-d","f-p","f-s"], vals={}, checks={};
   ids.forEach(id=>{const el=document.getElementById(id); if(el) vals[id]=el.value;});
   ["f-x","f-m"].forEach(id=>{const el=document.getElementById(id); if(el) checks[id]=el.checked;});
   fn();
   ids.forEach(id=>{const el=document.getElementById(id); if(el && vals[id]!=null) el.value=vals[id];});
   Object.keys(checks).forEach(id=>{const el=document.getElementById(id); if(el) el.checked=checks[id];});
+  const fc=document.getElementById("f-c"); if(fc) document.getElementById("f-pw").hidden = fc.value==="free";
 }
 function markDirty(){ if(!S.dirty){ S.dirty=true; if(ver("6.2")) safe(()=>TG.enableClosingConfirmation()); } }
-function clearDirty(){ S.dirty=false; S.photos=[]; if(ver("6.2")) safe(()=>TG.disableClosingConfirmation()); }
+function clearDirty(){ S.dirty=false; S.photos.forEach(p=>URL.revokeObjectURL(p.url)); S.photos=[]; if(ver("6.2")) safe(()=>TG.disableClosingConfirmation()); }
 
-function publish(){
-  const t=(document.getElementById("f-t")||{}).value||"";
-  if(!t.trim()){ popup("Не хватает названия","Напишите, что продаёте — например, «Honda Vision 2020».",[{type:"ok"}]); document.getElementById("f-t").focus(); return; }
-  const paid = S.boost!=="none";
-  popup("Объявление готово",
-    paid ? "В рабочей версии здесь откроется оплата продвижения через Telegram Stars или обменник. Сейчас это демо — ничего не списывается."
-         : "В рабочей версии объявление уйдёт на модерацию и появится в ленте. Сейчас это демо — оно никуда не отправится.",
-    [{type:"ok"}], ()=>{ hap.ok(); clearDirty(); S.boost="none"; S.tab="me"; render(); window.scrollTo(0,0); });
+/* ---------- публикация ---------- */
+function compress(file, max=1600, q=0.82){
+  return new Promise((res, rej)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const k = Math.min(1, max/Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width*k); c.height = Math.round(img.height*k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      res(c.toDataURL("image/jpeg", q));
+    };
+    img.onerror = ()=>rej(new Error("Не удалось прочитать фото"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+async function publish(){
+  if (S.busy) return;
+  const val = id => (document.getElementById(id)||{}).value||"";
+  const title = val("f-t").trim();
+  if (title.length < 3) { popup("Не хватает названия","Напишите, что продаёте — например, «Honda Vision 2020»."); return; }
+  const category = val("f-c");
+  const price_vnd = category==="free" ? 0 : +val("f-p").replace(/\D/g,"");
+  if (category!=="free" && !price_vnd) { popup("Укажите цену","Напишите цену в донгах. Если отдаёте бесплатно, выберите категорию «Отдам даром»."); return; }
+  if (!S.photos.length) { confirmAsk("Объявления без фото почти не смотрят. Опубликовать без фото?", ok=>{ if(ok) doPublish(); }); return; }
+  doPublish();
+}
+async function doPublish(){
+  const val = id => (document.getElementById(id)||{}).value||"";
+  const form = {
+    title: val("f-t").trim(), category: val("f-c"), city: val("f-city"), district: val("f-d").trim(),
+    price_vnd: val("f-c")==="free" ? 0 : +val("f-p").replace(/\D/g,""), description: val("f-s").trim(),
+    accepts_exchange: !!(document.getElementById("f-x")||{}).checked, moving_sale: !!(document.getElementById("f-m")||{}).checked
+  };
+  S.busy = true; mainProgress(true);
+  const btn = document.getElementById("publish"); if (btn) { btn.disabled = true; btn.textContent = "Публикую…"; }
+  try {
+    const paths = [];
+    for (let i=0; i<S.photos.length; i++){
+      if (btn) btn.textContent = `Загружаю фото ${i+1} из ${S.photos.length}…`;
+      if (TG) safe(()=>TG.MainButton.setText(`Фото ${i+1} из ${S.photos.length}…`));
+      const data = await compress(S.photos[i].file);
+      const r = await api("upload_photo", { data, type:"image/jpeg" });
+      paths.push(r.path);
+    }
+    if (TG) safe(()=>TG.MainButton.setText("Публикую…"));
+    const { listing } = await api("create_listing", { ...form, photos: paths });
+    remember([listing]); S.mine.unshift(listing);
+    hap.ok(); clearDirty();
+    S.busy = false; mainProgress(false);
+    if (listing.city === S.city) S.items.unshift(listing);
+    S.tab = "me"; render(); window.scrollTo(0,0);
+    popup("Опубликовано", "Объявление уже в ленте. Поделитесь им в чатах — так его увидят быстрее.",
+      [{id:"share", type:"default", text:"Поделиться"},{type:"close"}], id=>{ if(id==="share") share(listing); askWrite(); });
+  } catch(e){
+    S.busy = false; mainProgress(false); if (TG) safe(()=>TG.MainButton.setText("Опубликовать"));
+    if (btn) { btn.disabled = false; btn.textContent = "Опубликовать"; }
+    errPopup(e);
+  }
+}
+function askWrite(){
+  if (!S.me || S.me.can_write || !ver("6.9")) return;
+  safe(()=>TG.requestWriteAccess(ok=>{ if(ok){ S.me.can_write = true; api("write_access").catch(()=>{}); } }));
+}
+
+/* ---------- действия с объявлениями ---------- */
+function myAction(act, id){
+  const l = S.cache.get(id); if (!l) return;
+  const run = async ()=>{
+    try {
+      const r = act==="bump" ? await api("bump",{id}) : await api("set_status",{id, status:act});
+      hap.ok();
+      if (act==="deleted") { S.mine = S.mine.filter(x=>x.id!==id); S.items = S.items.filter(x=>x.id!==id); S.cache.delete(id); }
+      else { Object.assign(l, r.listing); }
+      if (act==="sold") S.items = S.items.filter(x=>x.id!==id);
+      toast({bump:"Поднято наверх ленты", reserved:"Отмечено как бронь", sold:"Отмечено как продано", active:"Снова в ленте", deleted:"Удалено"}[act]);
+      if (S.sheet) closeSheet(); else render();
+    } catch(e){ errPopup(e); }
+  };
+  if (act==="deleted") confirmAsk("Удалить объявление совсем? Фото тоже удалятся.", ok=>{ if(ok) run(); });
+  else run();
+}
+function toggleFav(id){
+  if (!TG) { popup("Избранное","Откройте приложение в Telegram, чтобы сохранять объявления."); return; }
+  const on = !S.fav.has(id);
+  on ? S.fav.add(id) : S.fav.delete(id);
+  if (S.favItems) S.favItems = on ? (S.cache.get(id)?[S.cache.get(id)].concat(S.favItems):S.favItems) : S.favItems.filter(x=>x.id!==id);
+  hap.tap(); if (!S.sheet) render(); else refreshSheetFav(id);
+  api("fav",{id,on}).catch(e=>{ on ? S.fav.delete(id) : S.fav.add(id); errPopup(e); render(); });
+}
+function refreshSheetFav(id){
+  const b = document.querySelector(".sheet [data-fav]"); if (!b) return;
+  b.classList.toggle("on", S.fav.has(id)); b.textContent = S.fav.has(id) ? "♥ В избранном" : "♡ В избранное";
+}
+function writeSeller(l){
+  if (l.seller_username) { openTg(`https://t.me/${l.seller_username}?text=${encodeURIComponent(`Здравствуйте! Пишу по объявлению «${l.title}» в Vietnam изнутри`)}`); return; }
+  api("contact",{id:l.id}).then(r=>{
+    if (r.ok) { hap.ok(); popup("Сообщение отправлено", "У продавца нет @username, поэтому бот передал ему ваш контакт. Он напишет вам в Telegram."); }
+    else popup("Не получилось", "Продавец пока не открыл чат с ботом, поэтому бот не может ему написать. Попробуйте позже или выберите другое объявление.");
+  }).catch(errPopup);
+}
+function buyViaExchange(l){
+  if (!S.manager) { popup("Скоро", "Покупка за рубли через обменник скоро заработает."); return; }
+  popup("Купить за рубли",
+    `Вы платите ≈ ${price(l.price_vnd,"rub")} с российской карты. Продавец получит ${price(l.price_vnd,"vnd")} наличными от курьера после того, как вы осмотрите вещь.`,
+    [{id:"go",type:"default",text:"Написать оператору"},{type:"cancel"}],
+    id=>{ if(id==="go") openTg(`https://t.me/${S.manager}?text=${encodeURIComponent(`Хочу купить через обменник: «${l.title}», ${price(l.price_vnd,"vnd")}. ${itemLink(l.id)}`)}`); });
+}
+function report(l){
+  popup("Пожаловаться", "Что не так с объявлением?",
+    [{id:"Мошенничество или спам",type:"destructive",text:"Обман / спам"},{id:"Уже продано",type:"default",text:"Уже продано"},{id:"Запрещённый товар",type:"default",text:"Запрещёнка"}],
+    id=>{ if(!id) return; api("report",{id:l.id, reason:id}).then(()=>{ hap.ok(); toast("Спасибо, модератор проверит"); }).catch(errPopup); });
+}
+function share(l){
+  const text=`${l.title} — ${price(l.price_vnd,"vnd")}${l.price_vnd?` (≈ ${price(l.price_vnd,"rub")})`:''}\nVietnam изнутри`;
+  const url=`https://t.me/share/url?url=${encodeURIComponent(itemLink(l.id))}&text=${encodeURIComponent(text)}`;
+  hap.tap();
+  if (TG) safe(()=>TG.openTelegramLink(url));
+  else if (navigator.share) navigator.share({title:l.title,text,url:itemLink(l.id)}).catch(()=>{});
+  else navigator.clipboard && navigator.clipboard.writeText(itemLink(l.id)).then(()=>toast("Ссылка скопирована"),()=>toast(itemLink(l.id)));
 }
 
 /* ---------- шторки ---------- */
@@ -541,97 +774,93 @@ function openSheet(html, key){
   document.getElementById("layer").innerHTML=`<div class="sheet-bg" data-close="1"></div><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div>`;
   syncChrome();
 }
-function closeSheet(){
-  S.sheet=null;
-  document.getElementById("layer").innerHTML="";
-  render();
-}
+function closeSheet(){ S.sheet=null; document.getElementById("layer").innerHTML=""; render(); }
 
-function buyViaExchange(it){
-  popup("Купить через обменник",
-    `Вы платите ${price(it.p,"rub")} с российской карты. Продавец получит ${price(it.p,"vnd")} наличными от курьера после того, как вы осмотрите вещь.`,
-    [{id:"go",type:"default",text:"Оставить заявку"},{type:"cancel"}],
-    id=>{ if(id!=="go") return;
-      if(CONFIG.MANAGER_USERNAME){ openTg(CONFIG.MANAGER_USERNAME); }
-      else { hap.ok(); toast("Демо: заявка ушла бы оператору обменника"); } });
-}
-function writeSeller(name){
-  popup("Написать продавцу", `В рабочей версии откроется личный чат с ${name} в Telegram. В демо у продавцов нет настоящих аккаунтов.`, [{type:"ok"}]);
-}
-function share(it){
-  const link=itemLink(it.id);
-  const text=`${it.t} — ${price(it.p,"vnd")}${it.p?` (≈ ${price(it.p,"rub")})`:''}\nVietnam изнутри`;
-  const url=`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
-  hap.tap();
-  if (TG) safe(()=>TG.openTelegramLink(url));
-  else if (navigator.share) navigator.share({title:it.t,text,url:link}).catch(()=>{});
-  else { navigator.clipboard && navigator.clipboard.writeText(link).then(()=>toast("Ссылка скопирована"),()=>toast(link)); }
-}
-
-function detail(id){
-  const it=ITEMS.find(i=>i.id===id); if(!it) return;
+async function detail(id){
+  let l;
+  try { l = await getListing(id); } catch(e){ errPopup(e); return; }
+  const mine = USER && l.seller_id === USER.id;
+  const gallery = l.photos.length
+    ? `<div class="gal">${l.photos.map(p=>`<img src="${PHOTO(p)}" alt="" loading="lazy">`).join("")}</div>${l.photos.length>1?`<div class="gal-n">${l.photos.length} фото · листайте</div>`:""}`
+    : `<div class="big-ph" style="background:${TINT[l.category]||TINT.other}">${svg(l.category)}</div>`;
+  const [st] = STATUS[l.status]||[""];
   openSheet(`
-    <div class="sheet-top"><button class="icon-btn" data-share="${it.id}" aria-label="Поделиться">${ICO_SHARE}</button><button class="icon-btn x" data-close="1" aria-label="Закрыть">✕</button></div>
-    <div class="big-ph" style="background:${TINT[it.c]}">${svg(it.c)}<div class="dots"><i></i><i></i><i></i><i></i></div></div>
-    <div class="d-h"><h3>${esc(it.t)}</h3>
-      <div class="conv"><b>${price(it.p,"vnd")}</b>${it.p?`<span>≈ ${price(it.p,"rub")}</span><span>≈ ${price(it.p,"usdt")}</span>`:''}</div>
-      ${it.p?`<div class="rate-note">Пересчёт по курсу обменника Vietnam изнутри на сегодня</div>`:''}
+    <div class="sheet-top"><button class="icon-btn" data-share="${l.id}" aria-label="Поделиться">${ICO_SHARE}</button><button class="icon-btn x" data-close="1" aria-label="Закрыть">✕</button></div>
+    ${gallery}
+    <div class="d-h"><h3>${esc(l.title)}</h3>
+      <div class="conv"><b>${price(l.price_vnd,"vnd")}</b>${l.price_vnd?`<span>≈ ${price(l.price_vnd,"rub")}</span><span>≈ ${price(l.price_vnd,"usdt")}</span>`:''}</div>
+      ${l.status!=="active"?`<span class="pill">${st}</span>`:""}
     </div>
-    <div class="box"><dl class="kv"><dt>Состояние</dt><dd>${it.cond}</dd><dt>Район</dt><dd>${it.d}, ${S.city}</dd><dt>Опубликовано</dt><dd>${it.ago} назад</dd></dl>
-      <p style="margin:12px 0 0;font-size:14px">${esc(it.desc)}</p></div>
-    <div class="box seller"><span class="ava">${it.s[0]}</span><span><b>${it.s}</b><small>★ ${String(it.sr).replace(".",",")} · ${it.sd} сделок · <span class="verified">✓ Telegram</span></small></span></div>
-    ${it.p?`<div class="box safe"><h4>Купить через обменник</h4><p>Заплатите ${price(it.p,"rub")} с российской карты. Продавец получит ${price(it.p,"vnd")} наличными от нашего курьера после того, как вы осмотрите вещь.</p>
-      <div class="steps"><div><b>1</b>Вы платите ₽</div><div><b>2</b>Осмотр вещи</div><div><b>3</b>Продавцу ₫</div></div></div>`:''}
-    <div class="actions">
-      <button class="btn sec" data-msg="${it.s}">Написать</button>
-      ${it.p?`<button class="btn pri" data-safe="${it.id}">Купить за ₽</button>`:`<button class="btn pri" data-msg="${it.s}">Забрать</button>`}
-    </div>`, "item");
-  if (it.p) { setMain(`Купить за ${price(it.p,"rub")}`, ()=>buyViaExchange(it)); setSecond("Написать", ()=>writeSeller(it.s)); }
-  else { setMain("Забрать", ()=>writeSeller(it.s)); setSecond(null); }
-  // без SecondaryButton (старый Telegram) — оставляем кнопку «Написать» в шторке
-  if (TG && !ver("7.10")) document.querySelector(".sheet .actions").style.display="flex";
+    <div class="box"><dl class="kv"><dt>Категория</dt><dd>${CAT_NAME[l.category]||""}</dd><dt>Где</dt><dd>${esc(l.city)}${l.district?", "+esc(l.district):""}</dd><dt>Опубликовано</dt><dd>${ago(l.created_at)} назад</dd><dt>Просмотров</dt><dd>${l.views}</dd></dl>
+      ${l.description?`<p class="desc">${esc(l.description)}</p>`:""}</div>
+    <div class="box seller"><span class="ava">${esc((l.seller_name||"?")[0])}</span><span><b>${esc(l.seller_name||"Продавец")}</b><small>${l.seller_username?"@"+esc(l.seller_username)+" · ":""}<span class="verified">✓ Telegram</span></small></span></div>
+    ${l.accepts_exchange && l.price_vnd && !mine?`<div class="box safe"><h4>Можно купить за рубли</h4><p>Заплатите ≈ ${price(l.price_vnd,"rub")} с российской карты — продавец получит донги от курьера после осмотра вещи.</p></div>`:""}
+    ${mine ? `<div class="form acts-big">
+        ${l.status==="active"?`<button class="btn sec" data-act="bump" data-id="${l.id}">Поднять</button><button class="btn sec" data-act="reserved" data-id="${l.id}">Бронь</button>`:""}
+        ${l.status==="reserved"||l.status==="sold"?`<button class="btn sec" data-act="active" data-id="${l.id}">Вернуть в ленту</button>`:""}
+        ${l.status!=="sold"&&l.status!=="hidden"?`<button class="btn sec" data-act="sold" data-id="${l.id}">Продано</button>`:""}
+        <button class="btn sec" data-act="deleted" data-id="${l.id}">Удалить</button></div>`
+      : `<div class="form row-links"><button class="link fav-link ${S.fav.has(l.id)?"on":""}" data-fav="${l.id}">${S.fav.has(l.id)?"♥ В избранном":"♡ В избранное"}</button><button class="link" data-report="${l.id}">Пожаловаться</button></div>
+         <div class="actions"><button class="btn sec" data-write="${l.id}">Написать</button>${l.accepts_exchange&&l.price_vnd?`<button class="btn pri" data-buy="${l.id}">Купить за ₽</button>`:""}</div>`}
+  `, "item");
+  if (mine) { setMain(null); setSecond(null); }
+  else {
+    setMain(l.seller_username ? "Написать продавцу" : "Связаться с продавцом", ()=>writeSeller(l));
+    if (l.accepts_exchange && l.price_vnd) setSecond(`Купить за ${price(l.price_vnd,"rub")}`, ()=>buyViaExchange(l)); else setSecond(null);
+    if (TG && !ver("7.10") && l.accepts_exchange && l.price_vnd) { const a=document.querySelector(".sheet .actions"); if(a) a.style.display="flex"; }
+  }
+  if (CONFIGURED) rest("rpc/add_view",{method:"POST", body:JSON.stringify({p_id:l.id})}).catch(()=>{});
 }
-function moving(){
-  const pack=[ITEMS[1],ITEMS[2],ITEMS[7],ITEMS[10]];
-  const sum=pack.reduce((a,b)=>a+b.p,0);
-  const deal=Math.round(sum*0.8/10000)*10000;
+async function moving(){
   openSheet(`<div class="sheet-top"><span></span><button class="icon-btn x" data-close="1" aria-label="Закрыть">✕</button></div>
-    <div class="d-h"><h3>Уезжаю — продаю всё</h3><p class="meta" style="margin:6px 0 0">Ирина, Хай Чау · улетаю 14 октября</p></div>
-    <div class="box"><dl class="kv"><dt>Вещей</dt><dd>${pack.length}</dd><dt>По отдельности</dt><dd>${price(sum,"vnd")}</dd><dt>Всё вместе</dt><dd style="color:var(--ok)">${price(deal,"vnd")} (−20%)</dd></dl></div>
-    <div class="sec-h"><h2>Что продаётся</h2></div>
-    <div class="list">${pack.map(it=>`<button class="li" data-open="${it.id}"><span class="mini" style="background:${TINT[it.c]}">${svg(it.c)}</span><span class="t"><b>${esc(it.t)}</b><small>${price(it.p,"vnd")}</small></span></button>`).join("")}</div>
-    <div class="actions"><button class="btn pri" data-msg="Ириной">Забрать всё за −20%</button></div>`, "moving");
-  setMain("Забрать всё за −20%", ()=>writeSeller("Ириной")); setSecond(null);
+    <div class="d-h"><h3>Уезжаю — продаю всё</h3><p class="meta" style="margin:6px 0 0">${esc(S.city)} · распродажи перед переездом</p></div><div id="mv" class="empty">Загружаю…</div>`, "moving");
+  setMain(null); setSecond(null);
+  try {
+    const rows = remember(await rest(`listings?select=*&status=in.(active,reserved)&moving_sale=is.true&city=eq.${encodeURIComponent(S.city)}&order=seller_id,bumped_at.desc&limit=200`));
+    const by = {}; rows.forEach(l=>{ (by[l.seller_id] = by[l.seller_id] || []).push(l); });
+    const html = Object.values(by).map(g=>`<div class="sec-h"><h2>${esc(g[0].seller_name||"Продавец")}</h2><span>${g.length} вещ. · ${price(g.reduce((a,l)=>a+l.price_vnd,0),"vnd")}</span></div>
+      <div class="list">${g.map(l=>`<button class="li" data-open="${l.id}">${thumb(l,"mini")}</div><span class="t"><b>${esc(l.title)}</b><small>${price(l.price_vnd,"vnd")}</small></span></button>`).join("")}</div>`).join("");
+    const box = document.getElementById("mv"); if (box) box.outerHTML = html || `<div class="empty">Сейчас распродаж нет.</div>`;
+  } catch(e){ const box=document.getElementById("mv"); if(box) box.textContent = e.message; }
 }
 
 /* ---------- события ---------- */
 document.addEventListener("click", e=>{
-  const t=e.target.closest("[data-tab],[data-cat],[data-cur],[data-open],[data-fav],[data-close],[data-moving],[data-msg],[data-safe],[data-ad],[data-pick],[data-boost],[data-savesearch],[data-share],[data-rmph],#publish");
-  if(!t) return;
-  if(t.dataset.fav){ e.stopPropagation(); const id=+t.dataset.fav; S.fav.has(id)?S.fav.delete(id):S.fav.add(id); saveFav(); hap.tap(); render(); return; }
-  if(t.dataset.tab){ if(S.tab===t.dataset.tab && !S.sheet) return; S.tab=t.dataset.tab; S.sheet=null; document.getElementById("layer").innerHTML=""; hap.pick(); render(); window.scrollTo(0,0); return; }
-  if(t.dataset.cat){ S.cat=t.dataset.cat; hap.pick(); render(); return; }
-  if(t.dataset.cur){ S.cur=t.dataset.cur; hap.pick(); render(); return; }
-  if(t.dataset.open){ hap.tap(); detail(+t.dataset.open); return; }
-  if(t.dataset.close){ closeSheet(); return; }
-  if(t.dataset.moving){ hap.tap(); moving(); return; }
-  if(t.dataset.share){ share(ITEMS.find(i=>i.id===+t.dataset.share)); return; }
-  if(t.dataset.msg){ writeSeller(t.dataset.msg); return; }
-  if(t.dataset.safe){ buyViaExchange(ITEMS.find(i=>i.id===+t.dataset.safe)); return; }
-  if(t.dataset.ad){ popup("Реклама", "В рабочей версии здесь откроется канал или чат рекламодателя, а клик засчитается в статистику.", [{type:"ok"}]); return; }
-  if(t.dataset.pick){ S.boost=t.dataset.pick; hap.pick(); keepForm(render); return; }
-  if(t.matches("[data-rmph]")){ e.preventDefault(); S.photos.splice(+t.dataset.rmph,1); keepForm(render); return; }
-  if(t.dataset.boost){ S.tab="post"; S.boost="vip"; render(); window.scrollTo(0,document.body.scrollHeight); return; }
-  if(t.dataset.savesearch){ hap.ok(); toast("Поиск сохранён, бот напишет о новых объявлениях"); return; }
+  const t=e.target.closest("[data-tab],[data-cat],[data-cur],[data-open],[data-fav],[data-close],[data-moving],[data-share],[data-rmph],[data-act],[data-write],[data-buy],[data-report],[data-more],[data-reload],[data-manager],#publish");
+  if(!t || t.disabled) return;
+  const d=t.dataset;
+  if(d.fav){ e.stopPropagation(); toggleFav(+d.fav); return; }
+  if(d.act){ e.stopPropagation(); myAction(d.act, +d.id); return; }
+  if(d.tab){
+    if(S.tab===d.tab && !S.sheet) return;
+    S.tab=d.tab; S.sheet=null; document.getElementById("layer").innerHTML=""; hap.pick(); render(); window.scrollTo(0,0);
+    if(S.tab==="fav" && TG) api("favs").then(r=>{ S.favItems = remember(r.listings); if(S.tab==="fav"&&!S.sheet) render(); }).catch(errPopup);
+    if(S.tab==="me") loadMe();
+    return;
+  }
+  if(d.cat){ S.cat=d.cat; hap.pick(); loadFeed(); return; }
+  if(d.cur){ S.cur=d.cur; hap.pick(); render(); return; }
+  if(d.open){ hap.tap(); detail(+d.open); return; }
+  if(d.close){ closeSheet(); return; }
+  if(d.moving){ hap.tap(); moving(); return; }
+  if(d.share){ getListing(+d.share).then(share).catch(errPopup); return; }
+  if(d.write){ getListing(+d.write).then(writeSeller).catch(errPopup); return; }
+  if(d.buy){ getListing(+d.buy).then(buyViaExchange).catch(errPopup); return; }
+  if(d.report){ getListing(+d.report).then(report).catch(errPopup); return; }
+  if(d.more){ loadFeed(true); return; }
+  if(d.reload){ loadFeed(); return; }
+  if(d.manager){ if(S.manager) openTg(`https://t.me/${S.manager}?text=${encodeURIComponent("Здравствуйте! Хочу обменять рубли на донги")}`); return; }
+  if(t.matches("[data-rmph]")){ e.preventDefault(); const p=S.photos.splice(+d.rmph,1)[0]; if(p) URL.revokeObjectURL(p.url); keepForm(render); return; }
   if(t.id==="publish"){ publish(); }
 });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") goBack(); });
 
-/* ---------- запуск: открыть объявление по ссылке ---------- */
+/* ---------- запуск ---------- */
 render();
+loadSettings(); loadFeed(); loadMovingCount(); loadMe();
 const start = (TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param) || location.hash.slice(1);
 const m = /^item_(\d+)$/.exec(start||"");
-if (m) detail(+m[1]);
+if (m && CONFIGURED) detail(+m[1]);
 </script>
 </body>
 </html>
