@@ -240,6 +240,7 @@ html,body{max-width:100%;overflow-x:hidden}
 @media (prefers-reduced-motion: reduce){.skel .ph{animation:none}}
 .stats{margin-bottom:4px}
 .box.safe+.box.safe{margin-top:10px}
+.lt{margin:0 0 8px;font-family:var(--f-display);font-size:14px}
 </style>
 </head>
 <body>
@@ -340,17 +341,25 @@ const S = {
   tab:"feed", cat:"all", q:"", cur:"vnd", city:"Дананг",
   items:[], page:0, more:false, loading:false, err:"",
   fav:new Set(), favItems:null, mine:[], me:null, admin:false,
-  rates:{ rub:305, usdt:26300 }, manager:"", movingCount:0,
+  rates:{ rub:281, usdt:25000, ladders:null, updated_at:null }, manager:"", movingCount:0,
   photos:[], sheet:null, dirty:false, busy:false, cache:new Map()
 };
 try { const c = localStorage.getItem("city"); if (CITIES.includes(c)) S.city = c; } catch(e){}
 
 /* ---------- утилиты ---------- */
 const fmt = n => Math.round(n).toLocaleString("ru-RU").replace(/[ ,]/g," ");
+// Курс считается действующим только в день, когда оператор обновил его в «Калькуляторе».
+// Если курс не обновлялся сегодня — ни одной цифры курса в приложении, только адрес к менеджеру.
+function ratesFresh(){
+  if (!S.rates.updated_at) return false;
+  const day = d => { try { return new Date(d).toLocaleDateString("en-CA",{timeZone:"Asia/Ho_Chi_Minh"}); } catch(e){ return new Date(d).toDateString(); } };
+  return day(S.rates.updated_at) === day(Date.now());
+}
+const STALE_NOTE = "Для точного расчёта напишите менеджеру";
 function price(p, cur){
   if (!p) return "Даром";
-  if (cur==="rub") return fmt(Math.round(p/S.rates.rub/10)*10)+" ₽";
-  if (cur==="usdt") return fmt(Math.round(p/S.rates.usdt))+" USDT";
+  if (cur==="rub") return ratesFresh() ? fmt(Math.round(p/S.rates.rub/10)*10)+" ₽" : STALE_NOTE;
+  if (cur==="usdt") return ratesFresh() ? fmt(Math.round(p/S.rates.usdt))+" USDT" : STALE_NOTE;
   return fmt(p)+" ₫";
 }
 const esc = s => String(s??"").replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
@@ -445,9 +454,10 @@ async function loadSettings(){
   try {
     const rows = await rest("app_settings?select=key,value");
     rows.forEach(r=>{
-      if (r.key==="rates" && r.value.rub && r.value.usdt) S.rates = { rub:+r.value.rub, usdt:+r.value.usdt };
+      if (r.key==="rates" && r.value.rub && r.value.usdt) S.rates = { rub:+r.value.rub, usdt:+r.value.usdt, ladders:r.value.ladders||null, updated_at:r.value.updated_at||null };
       if (r.key==="manager") S.manager = String(r.value.username||"").replace(/^@/,"");
     });
+    if (!ratesFresh() && S.cur!=="vnd") S.cur = "vnd";
     if (!S.sheet) render();
   } catch(e){}
 }
@@ -499,7 +509,7 @@ function card(l){
     <div class="card-b"><span class="price">${price(l.price_vnd,S.cur)}</span><span class="title">${esc(l.title)}</span><span class="meta">${esc(l.district||l.city)} · ${ago(l.bumped_at)}</span></div>
   </button>`;
 }
-const exchangeAd = () => `<button class="ad" data-tab="swap"><span class="ic">${svg("swap","#D6EB4F")}</span><span><span class="tag">Сервис Vietnam изнутри</span><b>Рубли → донги с доставкой</b><p>Курс лучше банков, курьер привезёт наличные. ${S.rates.rub ? "1 ₽ = "+fmt(S.rates.rub)+" ₫" : ""}</p></span></button>`;
+const exchangeAd = () => `<button class="ad" data-tab="swap"><span class="ic">${svg("swap","#D6EB4F")}</span><span><span class="tag">Сервис Vietnam изнутри</span><b>Рубли → донги с доставкой</b><p>Курьер привезёт наличные донги по курсу, который называет оператор.</p></span></button>`;
 
 /* ---------- экраны ---------- */
 function header(){
@@ -514,7 +524,10 @@ function header(){
     <div class="search">
       <input id="q" type="search" enterkeyhint="search" placeholder="Байк, матрас, коляска…" value="${esc(S.q)}" aria-label="Поиск">
       <div class="cur" role="group" aria-label="Валюта цен">
-        ${[["vnd","₫"],["rub","₽"],["usdt","$T"]].map(([k,l])=>`<button data-cur="${k}" aria-pressed="${S.cur===k}">${l}</button>`).join("")}
+        ${[["vnd","₫"],["rub","₽"],["usdt","$T"]].map(([k,l])=>{
+          const dis = k!=="vnd" && !ratesFresh();
+          return `<button data-cur="${k}" aria-pressed="${S.cur===k}" ${dis?'disabled title="Курс сегодня не обновлялся — уточните у менеджера"':''}>${l}</button>`;
+        }).join("")}
       </div>
     </div>
   </header>`;
@@ -547,14 +560,12 @@ function favs(){
 }
 
 function swap(){
-  const r = S.rates;
-  return `<div class="form" style="padding-bottom:4px"><h2>Обмен валют</h2></div>
-  <div class="stats"><div><b>${fmt(r.rub)}</b><small>₫ за 1 ₽</small></div><div><b>${fmt(r.usdt)}</b><small>₫ за 1 USDT</small></div><div><b>${fmt(Math.round(1000000/r.rub))}</b><small>₽ за 1 млн ₫</small></div></div>
-  <div class="box safe"><h4>Рубли и USDT → донги</h4><p>Переводите рубли с российской карты или USDT — курьер привезёт донги наличными, куда скажете. Без предоплат незнакомцам.</p>
-    <div class="steps"><div><b>1</b>Пишете оператору</div><div><b>2</b>Фиксируем курс</div><div><b>3</b>Курьер везёт ₫</div></div></div>
+  return `<div class="form" style="padding-bottom:4px"><h2>Оплата и обмен</h2></div>
+  <div class="box safe"><h4>Как это работает</h4><p>Переводите рубли с российской карты или USDT — курьер привезёт донги наличными, куда скажете. Без предоплат незнакомцам. Курс на момент обращения называет оператор.</p>
+    <div class="steps"><div><b>1</b>Пишете оператору</div><div><b>2</b>Оператор называет курс</div><div><b>3</b>Курьер везёт ₫</div></div></div>
   <div class="box safe"><h4>Покупка вещи за рубли</h4><p>Понравилась вещь, а донгов нет? Платите рублями — продавец получит донги от нашего курьера после того, как вы осмотрите вещь. Кнопка «Купить за ₽» есть в объявлениях с отметкой обмена.</p></div>
   <div class="form"><button class="btn pri" data-manager="1" ${S.manager?"":"disabled"}>${S.manager?"Написать оператору":"Контакт оператора скоро появится"}</button></div>
-  <p class="proto">Курс ориентировочный, точный фиксируется у оператора.</p>`;
+  <p class="proto">Курс не публикуется в приложении — его называет оператор при обращении.</p>`;
 }
 
 function me(){
@@ -599,7 +610,7 @@ function post(){
       <div class="field"><label for="f-city">Город</label><select id="f-city">${CITIES.map(c=>`<option ${c===S.city?'selected':''}>${c}</option>`).join("")}</select></div>
     </div>
     <div class="field"><label for="f-d">Район</label><input id="f-d" list="f-dl" maxlength="60" placeholder="${dl[0]?'Например, '+dl[0]:'Район или ориентир'}"><datalist id="f-dl">${dl.map(d=>`<option value="${d}">`).join("")}</datalist></div>
-    <div class="field" id="f-pw"><label for="f-p">Цена, ₫</label><input id="f-p" inputmode="numeric" placeholder="2 500 000"><span class="rate-note" id="f-conv">≈ 0 ₽ · 0 USDT по курсу обменника</span></div>
+    <div class="field" id="f-pw"><label for="f-p">Цена, ₫</label><input id="f-p" inputmode="numeric" placeholder="2 500 000"><span class="rate-note" id="f-conv">${ratesFresh() ? "≈ 0 ₽ · 0 USDT по курсу обменника" : STALE_NOTE}</span></div>
     <div class="field"><label for="f-s">Описание</label><textarea id="f-s" rows="4" maxlength="3000" placeholder="Состояние, комплект, где посмотреть"></textarea></div>
     <label class="toggle">Можно купить за рубли через обменник<input id="f-x" type="checkbox" checked></label>
     <label class="toggle">Это распродажа перед отъездом<input id="f-m" type="checkbox"></label>
@@ -625,7 +636,7 @@ function bindInputs(){
   const city=document.getElementById("city");
   if(city) city.onchange=e=>{ S.city=e.target.value; try{localStorage.setItem("city",S.city);}catch(_){} hap.pick(); loadFeed(); loadMovingCount(); };
   const fp=document.getElementById("f-p");
-  if(fp) fp.oninput=e=>{ const v=+e.target.value.replace(/\D/g,""); e.target.value=v?fmt(v):""; document.getElementById("f-conv").textContent=`≈ ${fmt(Math.round(v/S.rates.rub))} ₽ · ${fmt(Math.round(v/S.rates.usdt))} USDT по курсу обменника`; markDirty(); };
+  if(fp) fp.oninput=e=>{ const v=+e.target.value.replace(/\D/g,""); e.target.value=v?fmt(v):""; document.getElementById("f-conv").textContent = ratesFresh() ? `≈ ${fmt(Math.round(v/S.rates.rub))} ₽ · ${fmt(Math.round(v/S.rates.usdt))} USDT по курсу обменника` : STALE_NOTE; markDirty(); };
   const fc=document.getElementById("f-c");
   if(fc) { const upd=()=>{ document.getElementById("f-pw").hidden = fc.value==="free"; }; fc.onchange=upd; upd(); }
   ["f-t","f-s","f-d"].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener("input", markDirty); });
@@ -749,8 +760,10 @@ function writeSeller(l){
 }
 function buyViaExchange(l){
   if (!S.manager) { popup("Скоро", "Покупка за рубли через обменник скоро заработает."); return; }
-  popup("Купить за рубли",
-    `Вы платите ≈ ${price(l.price_vnd,"rub")} с российской карты. Продавец получит ${price(l.price_vnd,"vnd")} наличными от курьера после того, как вы осмотрите вещь.`,
+  const msg = ratesFresh()
+    ? `Вы платите ≈ ${price(l.price_vnd,"rub")} с российской карты. Продавец получит ${price(l.price_vnd,"vnd")} наличными от курьера после того, как вы осмотрите вещь.`
+    : `${STALE_NOTE}. Он назовёт точную сумму в рублях и организует доставку донгов курьером.`;
+  popup("Купить за рубли", msg,
     [{id:"go",type:"default",text:"Написать оператору"},{type:"cancel"}],
     id=>{ if(id==="go") openTg(`https://t.me/${S.manager}?text=${encodeURIComponent(`Хочу купить через обменник: «${l.title}», ${price(l.price_vnd,"vnd")}. ${itemLink(l.id)}`)}`); });
 }
@@ -760,7 +773,8 @@ function report(l){
     id=>{ if(!id) return; api("report",{id:l.id, reason:id}).then(()=>{ hap.ok(); toast("Спасибо, модератор проверит"); }).catch(errPopup); });
 }
 function share(l){
-  const text=`${l.title} — ${price(l.price_vnd,"vnd")}${l.price_vnd?` (≈ ${price(l.price_vnd,"rub")})`:''}\nVietnam изнутри`;
+  const rubPart = l.price_vnd && ratesFresh() ? ` (≈ ${price(l.price_vnd,"rub")})` : '';
+  const text=`${l.title} — ${price(l.price_vnd,"vnd")}${rubPart}\nVietnam изнутри`;
   const url=`https://t.me/share/url?url=${encodeURIComponent(itemLink(l.id))}&text=${encodeURIComponent(text)}`;
   hap.tap();
   if (TG) safe(()=>TG.openTelegramLink(url));
@@ -788,13 +802,15 @@ async function detail(id){
     <div class="sheet-top"><button class="icon-btn" data-share="${l.id}" aria-label="Поделиться">${ICO_SHARE}</button><button class="icon-btn x" data-close="1" aria-label="Закрыть">✕</button></div>
     ${gallery}
     <div class="d-h"><h3>${esc(l.title)}</h3>
-      <div class="conv"><b>${price(l.price_vnd,"vnd")}</b>${l.price_vnd?`<span>≈ ${price(l.price_vnd,"rub")}</span><span>≈ ${price(l.price_vnd,"usdt")}</span>`:''}</div>
+      <div class="conv"><b>${price(l.price_vnd,"vnd")}</b>${l.price_vnd ? (ratesFresh() ? `<span>≈ ${price(l.price_vnd,"rub")}</span><span>≈ ${price(l.price_vnd,"usdt")}</span>` : `<span class="hint">${STALE_NOTE}</span>`) : ''}</div>
       ${l.status!=="active"?`<span class="pill">${st}</span>`:""}
     </div>
     <div class="box"><dl class="kv"><dt>Категория</dt><dd>${CAT_NAME[l.category]||""}</dd><dt>Где</dt><dd>${esc(l.city)}${l.district?", "+esc(l.district):""}</dd><dt>Опубликовано</dt><dd>${ago(l.created_at)} назад</dd><dt>Просмотров</dt><dd>${l.views}</dd></dl>
       ${l.description?`<p class="desc">${esc(l.description)}</p>`:""}</div>
     <div class="box seller"><span class="ava">${esc((l.seller_name||"?")[0])}</span><span><b>${esc(l.seller_name||"Продавец")}</b><small>${l.seller_username?"@"+esc(l.seller_username)+" · ":""}<span class="verified">✓ Telegram</span></small></span></div>
-    ${l.accepts_exchange && l.price_vnd && !mine?`<div class="box safe"><h4>Можно купить за рубли</h4><p>Заплатите ≈ ${price(l.price_vnd,"rub")} с российской карты — продавец получит донги от курьера после осмотра вещи.</p></div>`:""}
+    ${l.accepts_exchange && l.price_vnd && !mine ? (ratesFresh()
+      ? `<div class="box safe"><h4>Можно купить за рубли</h4><p>Заплатите ≈ ${price(l.price_vnd,"rub")} с российской карты — продавец получит донги от курьера после осмотра вещи.</p></div>`
+      : `<div class="box safe"><h4>Можно купить за рубли</h4><p>${STALE_NOTE}: он назовёт точную сумму в рублях.</p></div>`) : ""}
     ${mine ? `<div class="form acts-big">
         ${l.status==="active"?`<button class="btn sec" data-act="bump" data-id="${l.id}">Поднять</button><button class="btn sec" data-act="reserved" data-id="${l.id}">Бронь</button>`:""}
         ${l.status==="reserved"||l.status==="sold"?`<button class="btn sec" data-act="active" data-id="${l.id}">Вернуть в ленту</button>`:""}
@@ -806,7 +822,7 @@ async function detail(id){
   if (mine) { setMain(null); setSecond(null); }
   else {
     setMain(l.seller_username ? "Написать продавцу" : "Связаться с продавцом", ()=>writeSeller(l));
-    if (l.accepts_exchange && l.price_vnd) setSecond(`Купить за ${price(l.price_vnd,"rub")}`, ()=>buyViaExchange(l)); else setSecond(null);
+    if (l.accepts_exchange && l.price_vnd) setSecond(ratesFresh() ? `Купить за ${price(l.price_vnd,"rub")}` : "Купить за ₽ — у менеджера", ()=>buyViaExchange(l)); else setSecond(null);
     if (TG && !ver("7.10") && l.accepts_exchange && l.price_vnd) { const a=document.querySelector(".sheet .actions"); if(a) a.style.display="flex"; }
   }
   if (CONFIGURED) rest("rpc/add_view",{method:"POST", body:JSON.stringify({p_id:l.id})}).catch(()=>{});
@@ -861,6 +877,8 @@ loadSettings(); loadFeed(); loadMovingCount(); loadMe();
 const start = (TG && TG.initDataUnsafe && TG.initDataUnsafe.start_param) || location.hash.slice(1);
 const m = /^item_(\d+)$/.exec(start||"");
 if (m && CONFIGURED) detail(+m[1]);
+if (start === "swap") { S.tab = "swap"; render(); }
+
 </script>
 </body>
 </html>
