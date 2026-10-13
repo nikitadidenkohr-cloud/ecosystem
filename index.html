@@ -71,7 +71,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 /* сетка товаров */
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-inline:16px}
 .card{background:var(--surface);border-radius:var(--r);overflow:hidden;text-align:left;display:flex;flex-direction:column;position:relative;min-width:0}
-.ph{aspect-ratio:1/1;max-width:100%;display:grid;place-items:center;position:relative}
+.ph{aspect-ratio:1/1;max-width:100%;display:grid;place-items:center;position:relative;overflow:hidden}
 .ph svg{width:46%;height:46%}
 .badge{position:absolute;left:8px;top:8px;font-size:11px;font-weight:800;padding:3px 7px;border-radius:7px;background:var(--lime);color:var(--lime-ink)}
 .badge.res{background:#1C2A1E;color:#ECF1E2}
@@ -166,7 +166,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .stats small{color:var(--muted);font-size:12px;font-weight:600}
 .list{display:grid;gap:8px;padding-inline:16px}
 .li{display:flex;gap:12px;align-items:center;background:var(--surface);border-radius:14px;padding:10px;text-align:left;width:100%}
-.li .mini{width:54px;height:54px;border-radius:10px;flex:none;display:grid;place-items:center}
+.li .mini{width:54px;height:54px;border-radius:10px;flex:none;display:grid;place-items:center;position:relative}
 .li .mini svg{width:55%;height:55%}
 .li .t{min-width:0;flex:1}
 .li .t b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -213,7 +213,7 @@ html,body{max-width:100%;overflow-x:hidden}
 .saved>span,.boost>span:first-child{min-width:0}
 /* ---- реальные данные ---- */
 .ph.has-img{background:var(--surface-2)}
-.ph.has-img img,.mini.has-img img{width:100%;height:100%;object-fit:cover;display:block}
+.ph.has-img img,.mini.has-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .li .mini{overflow:hidden}
 .st.on{color:var(--ok);font-weight:700}.st.warn{color:var(--danger);font-weight:700}
 .pill.warn{background:var(--danger);color:#fff}
@@ -416,6 +416,14 @@ function goBack(){
 }
 
 /* ---------- загрузка ---------- */
+// Несколько независимых фоновых ответов (настройки/лента/счётчик переезда/профиль), пришедших
+// почти одновременно, схлопываются в одну перерисовку вместо нескольких подряд — иначе каждая
+// пересобирает все карточки и фото заново, что и ощущается как фриз/мигание при переходах.
+let renderTimer = null;
+function scheduleRender(delay=60){
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(()=>{ renderTimer=null; render(); }, delay);
+}
 const PAGE = 30;
 function feedQuery(offset){
   const p = new URLSearchParams();
@@ -440,13 +448,13 @@ async function loadFeed(append=false){
     S.items = append ? S.items.concat(rows) : rows;
     S.more = rows.length === PAGE;
   } catch(e){ if (seq === feedSeq) S.err = e.message; }
-  if (seq === feedSeq) { S.loading = false; render(); }
+  if (seq === feedSeq) { S.loading = false; scheduleRender(); }
 }
 async function loadMovingCount(){
   if (!CONFIGURED) return;
   try {
     const rows = await rest(`listings?select=id&status=eq.active&moving_sale=is.true&city=eq.${encodeURIComponent(S.city)}&limit=200`);
-    S.movingCount = rows.length; if (S.tab==="feed" && !S.sheet) render();
+    S.movingCount = rows.length; if (S.tab==="feed" && !S.sheet) scheduleRender();
   } catch(e){}
 }
 async function loadSettings(){
@@ -458,7 +466,7 @@ async function loadSettings(){
       if (r.key==="manager") S.manager = String(r.value.username||"").replace(/^@/,"");
     });
     if (!ratesFresh() && S.cur!=="vnd") S.cur = "vnd";
-    if (!S.sheet) render();
+    if (!S.sheet) scheduleRender();
   } catch(e){}
 }
 async function loadMe(){
@@ -466,7 +474,7 @@ async function loadMe(){
   try {
     const d = await api("me");
     S.me = d.user; S.admin = d.admin; S.fav = new Set(d.favs); S.mine = remember(d.mine);
-    if (!S.sheet) render();
+    if (!S.sheet) scheduleRender();
   } catch(e){ console.warn(e); }
 }
 async function getListing(id){
@@ -850,7 +858,7 @@ document.addEventListener("click", e=>{
   if(d.tab){
     if(S.tab===d.tab && !S.sheet) return;
     S.tab=d.tab; S.sheet=null; document.getElementById("layer").innerHTML=""; hap.pick(); render(); window.scrollTo(0,0);
-    if(S.tab==="fav" && TG) api("favs").then(r=>{ S.favItems = remember(r.listings); if(S.tab==="fav"&&!S.sheet) render(); }).catch(errPopup);
+    if(S.tab==="fav" && TG) api("favs").then(r=>{ S.favItems = remember(r.listings); if(S.tab==="fav"&&!S.sheet) scheduleRender(); }).catch(errPopup);
     if(S.tab==="me") loadMe();
     return;
   }
@@ -870,6 +878,9 @@ document.addEventListener("click", e=>{
   if(t.id==="publish"){ publish(); }
 });
 document.addEventListener("keydown",e=>{ if(e.key==="Escape") goBack(); });
+// На кнопку "Ввод"/"Готово" клавиатуры поле теряет фокус и клавиатура закрывается, чтобы не мешать скроллу.
+// Textarea не трогаем — там Enter должен переносить строку.
+document.addEventListener("keydown",e=>{ if(e.key==="Enter" && e.target.matches("input")) e.target.blur(); });
 
 /* ---------- запуск ---------- */
 render();
